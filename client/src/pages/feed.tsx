@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
+import { PullToRefresh } from "@/components/ui/pull-to-refresh";
 import { translations } from "@/lib/persian";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -49,7 +50,12 @@ export default function FeedPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+  };
+
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="container max-w-2xl px-4 md:px-6 py-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">{translations.feed.title}</h1>
@@ -155,5 +161,6 @@ export default function FeedPage() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }

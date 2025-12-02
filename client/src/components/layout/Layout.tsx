@@ -1,5 +1,6 @@
 import { TopNav } from "./TopNav";
 import { BottomNav } from "./BottomNav";
+import { SwipeBack } from "./SwipeBack";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 
@@ -15,9 +16,11 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <TopNav user={currentUser} />
-      <main className="pb-20 md:pb-0">
-        {children}
-      </main>
+      <SwipeBack>
+        <main className="pb-20 md:pb-0">
+          {children}
+        </main>
+      </SwipeBack>
       <BottomNav />
     </div>
   );

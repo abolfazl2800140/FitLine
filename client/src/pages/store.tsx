@@ -221,7 +221,7 @@ export default function StorePage() {
                     </span>
                   </div>
                   <Button 
-                    className="w-full glow-orange" 
+                    className="w-full glow-green" 
                     size="lg"
                     data-testid="button-checkout"
                   >

@@ -125,7 +125,7 @@ export default function AuthPage() {
           <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
             <Dumbbell className="h-8 w-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl text-gradient-orange">فیت‌لاین</CardTitle>
+          <CardTitle className="text-2xl text-gradient-sport">فیت‌لاین</CardTitle>
           <CardDescription>
             {tab === "login" 
               ? "وارد حساب کاربری خود شوید" 

@@ -44,15 +44,16 @@ export function TopNav({ user }: TopNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center gap-4 px-4 md:px-6">
+    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <div className="container flex h-18 items-center gap-6 px-6 md:px-8">
         <Link href="/">
-          <div className="flex items-center gap-2 cursor-pointer" data-testid="nav-logo">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">F</span>
+          <div className="flex items-center gap-3 cursor-pointer group" data-testid="nav-logo">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30 group-hover:shadow-primary/50 transition-shadow">
+              <span className="text-primary-foreground font-black text-xl">E</span>
             </div>
-            <span className="hidden sm:block font-bold text-xl text-gradient-orange">
-              فیت‌لاین
+            <span className="hidden sm:block font-black text-xl tracking-tight">
+              <span className="text-gradient-sport">ELITE</span>
+              <span className="text-foreground/80 text-sm font-bold mr-1">HUB</span>
             </span>
           </div>
         </Link>
@@ -211,7 +212,7 @@ export function TopNav({ user }: TopNavProps) {
                   <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
                     <span className="text-primary-foreground font-bold text-xl">F</span>
                   </div>
-                  <span className="font-bold text-2xl text-gradient-orange">فیت‌لاین</span>
+                  <span className="font-bold text-2xl text-gradient-sport">فیت‌لاین</span>
                 </div>
               </div>
               

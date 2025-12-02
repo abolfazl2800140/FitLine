@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout/Layout";
+import { PageTransition } from "@/components/layout/PageTransition";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home";
 import CoachesPage from "@/pages/coaches";
@@ -16,6 +17,7 @@ import ChallengesPage from "@/pages/challenges";
 import EducationPage from "@/pages/education";
 import ProfilePage from "@/pages/profile";
 import AuthPage from "@/pages/auth";
+import DesignSystemPage from "@/pages/design-system";
 
 function Router() {
   return (
@@ -37,6 +39,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/login" component={AuthPage} />
       <Route path="/register" component={AuthPage} />
+      <Route path="/design-system" component={DesignSystemPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -47,7 +50,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Layout>
-          <Router />
+          <PageTransition>
+            <Router />
+          </PageTransition>
         </Layout>
         <Toaster />
       </TooltipProvider>

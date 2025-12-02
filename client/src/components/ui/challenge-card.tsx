@@ -19,6 +19,7 @@ interface ChallengeCardProps {
   coverImage?: string | null;
   progress?: number;
   isJoined?: boolean;
+  compact?: boolean;
   onJoin?: () => void;
   className?: string;
 }
@@ -36,6 +37,7 @@ export function ChallengeCard({
   coverImage,
   progress = 0,
   isJoined = false,
+  compact = false,
   onJoin,
   className,
 }: ChallengeCardProps) {
@@ -44,6 +46,47 @@ export function ChallengeCard({
   const diffMs = end.getTime() - now.getTime();
   const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
   const hoursRemaining = Math.max(0, Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
+
+  if (compact) {
+    return (
+      <Card 
+        className={cn(
+          "overflow-hidden border border-border/50 hover:shadow-md transition-all",
+          className
+        )}
+        data-testid={`card-challenge-${id}`}
+      >
+        <div className="relative h-24 overflow-hidden">
+          {coverImage ? (
+            <img src={coverImage} alt={title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/20 flex items-center justify-center">
+              <Zap className="h-8 w-8 text-primary/50" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="absolute bottom-2 right-2 left-2">
+            <h3 className="font-bold text-white text-sm line-clamp-1">{title}</h3>
+          </div>
+          <Badge className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 bg-primary/90">
+            {type === "weekly" ? "هفتگی" : "ماهانه"}
+          </Badge>
+        </div>
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {toPersianNumber(participantCount)}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {toPersianNumber(daysRemaining)} روز
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card 

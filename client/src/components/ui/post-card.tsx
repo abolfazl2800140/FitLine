@@ -51,26 +51,32 @@ export function PostCard({
   const [saved, setSaved] = useState(isSaved);
   const [likes, setLikes] = useState(likeCount);
 
+  const [likeAnimating, setLikeAnimating] = useState(false);
+
   const handleLike = () => {
     setLiked(!liked);
     setLikes(liked ? likes - 1 : likes + 1);
+    if (!liked) {
+      setLikeAnimating(true);
+      setTimeout(() => setLikeAnimating(false), 800);
+    }
     onLike?.();
   };
 
   return (
     <Card 
-      className={cn("overflow-hidden", className)}
+      className={cn("overflow-hidden border-0 bg-card/80 hover:bg-card transition-colors duration-300", className)}
       data-testid={`card-post-${id}`}
     >
-      <CardHeader className="flex flex-row items-center gap-3 p-4 pb-2">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={userAvatar || undefined} alt={userName} />
-          <AvatarFallback className="bg-primary text-primary-foreground">
+      <CardHeader className="flex flex-row items-center gap-3 p-5 pb-3">
+        <Avatar className="h-11 w-11 ring-2 ring-primary/10">
+          <AvatarImage src={userAvatar || undefined} alt={userName} className="object-cover" />
+          <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold">
             {userName.charAt(0)}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-sm truncate">{userName}</h4>
+          <h4 className="font-bold text-sm truncate hover:text-primary transition-colors cursor-pointer">{userName}</h4>
           <p className="text-xs text-muted-foreground">
             {formatRelativeTime(createdAt)}
           </p>
@@ -123,49 +129,58 @@ export function PostCard({
         )}
       </CardContent>
 
-      <CardFooter className="p-4 pt-2 flex items-center justify-between">
-        <div className="flex items-center gap-1">
+      <CardFooter className="p-5 pt-3 flex items-center justify-between border-t border-border/30">
+        <div className="flex items-center gap-2">
           <Button 
             variant="ghost" 
             size="sm" 
             className={cn(
-              "gap-1.5 h-8 px-2",
-              liked && "text-red-500"
+              "gap-2 h-9 px-3 rounded-full press-effect",
+              liked && "text-red-500 bg-red-500/10"
             )}
             onClick={handleLike}
             data-testid={`button-like-${id}`}
           >
-            <Heart className={cn("h-4 w-4", liked && "fill-current")} />
-            <span className="text-sm">{toPersianNumber(likes)}</span>
+            <Heart className={cn(
+              "h-5 w-5 transition-transform", 
+              liked && "fill-current",
+              likeAnimating && "heart-beat"
+            )} />
+            <span className={cn("text-sm font-medium number-transition", likeAnimating && "animate-count")}>
+              {toPersianNumber(likes)}
+            </span>
           </Button>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="gap-1.5 h-8 px-2"
+            className="gap-2 h-9 px-3 rounded-full press-effect"
             onClick={onComment}
             data-testid={`button-comment-${id}`}
           >
-            <MessageCircle className="h-4 w-4" />
-            <span className="text-sm">{toPersianNumber(commentCount)}</span>
+            <MessageCircle className="h-5 w-5" />
+            <span className="text-sm font-medium">{toPersianNumber(commentCount)}</span>
           </Button>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-8 px-2"
+            className="h-9 px-3 rounded-full press-effect"
             onClick={onShare}
             data-testid={`button-share-${id}`}
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-5 w-5" />
           </Button>
         </div>
         <Button 
           variant="ghost" 
           size="icon"
-          className={cn("h-8 w-8", saved && "text-primary")}
+          className={cn(
+            "h-9 w-9 rounded-full press-effect", 
+            saved && "text-primary bg-primary/10"
+          )}
           onClick={() => setSaved(!saved)}
           data-testid={`button-save-${id}`}
         >
-          <Bookmark className={cn("h-4 w-4", saved && "fill-current")} />
+          <Bookmark className={cn("h-5 w-5 transition-transform", saved && "fill-current scale-110")} />
         </Button>
       </CardFooter>
     </Card>

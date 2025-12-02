@@ -51,42 +51,48 @@ export function SupplementCard({
     e.preventDefault();
     e.stopPropagation();
     if (!inCart && inStock) {
-      setInCart(true);
-      onAddToCart?.();
+      setAddingToCart(true);
+      setTimeout(() => {
+        setInCart(true);
+        setAddingToCart(false);
+        onAddToCart?.();
+      }, 300);
     }
   };
+
+  const [addingToCart, setAddingToCart] = useState(false);
 
   return (
     <Card 
       className={cn(
-        "overflow-hidden hover-elevate active-elevate-2 transition-all duration-300 group cursor-pointer",
+        "overflow-hidden border-0 bg-card/80 interactive-card group cursor-pointer",
         className
       )}
       data-testid={`card-supplement-${id}`}
     >
       <Link href={`/store/${id}`}>
-        <div className="relative aspect-square overflow-hidden bg-muted">
+        <div className="relative aspect-square overflow-hidden bg-muted/50 image-zoom">
           {image ? (
             <img
               src={image}
               alt={name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
               <ShoppingCart className="h-12 w-12 text-muted-foreground/30" />
             </div>
           )}
 
           {discount > 0 && (
-            <Badge className="absolute top-3 right-3 bg-red-500 hover:bg-red-500">
+            <Badge className="absolute top-3 right-3 bg-red-500 hover:bg-red-500 shadow-lg badge-pop">
               {toPersianNumber(discount)}% {translations.store.discount}
             </Badge>
           )}
 
           {!inStock && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <Badge variant="secondary" className="text-base">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
+              <Badge variant="secondary" className="text-base px-4 py-2">
                 {translations.store.outOfStock}
               </Badge>
             </div>
@@ -122,20 +128,24 @@ export function SupplementCard({
             <Button 
               size="sm"
               variant={inCart ? "secondary" : "default"}
-              className={cn("h-8 gap-1", inCart && "pointer-events-none")}
+              className={cn(
+                "h-9 gap-1.5 rounded-full press-effect transition-all duration-300", 
+                inCart && "bg-green-500/10 text-green-500 pointer-events-none",
+                addingToCart && "scale-95"
+              )}
               onClick={handleAddToCart}
-              disabled={!inStock}
+              disabled={!inStock || addingToCart}
               data-testid={`button-add-cart-${id}`}
             >
               {inCart ? (
                 <>
-                  <Check className="h-3.5 w-3.5" />
-                  <span className="text-xs">{translations.store.inCart}</span>
+                  <Check className="h-4 w-4 animate-bounce-in" />
+                  <span className="text-xs font-bold">{translations.store.inCart}</span>
                 </>
               ) : (
                 <>
-                  <ShoppingCart className="h-3.5 w-3.5" />
-                  <span className="text-xs hidden sm:inline">{translations.store.addToCart}</span>
+                  <ShoppingCart className={cn("h-4 w-4", addingToCart && "animate-bounce")} />
+                  <span className="text-xs font-bold hidden sm:inline">{translations.store.addToCart}</span>
                 </>
               )}
             </Button>
