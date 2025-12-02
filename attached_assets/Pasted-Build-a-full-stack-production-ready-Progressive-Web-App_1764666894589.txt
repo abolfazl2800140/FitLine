@@ -1,0 +1,76 @@
+Build a full-stack, production-ready Progressive Web App called "FitLine". This command must generate both frontend and backend together in one runnable Replit project with working dev start scripts, seed data, and clear README. Follow all instructions below exactly.
+
+1) PROJECT OVERVIEW
+- Name: FitLine
+- Type: Full-stack PWA (web-first, mobile responsive), built end-to-end in this Replit workspace.
+- Purpose: Coaches marketplace + social fitness feed + training & nutrition program system + coach-client messaging + supplement store + monthly gamified leagues + education hub.
+
+2) TECH STACK (must use)
+- Frontend: Next.js (App Router, latest stable), TailwindCSS, ShadCN UI, Zustand or Redux Toolkit, Recharts for charts, PWA enabled, responsive mobile-first.
+- Backend: NestJS (Node.js) REST + GraphQL boilerplate where appropriate.
+- ORM: Prisma + PostgreSQL (provide prisma schema and seed script).
+- Real-time: WebSocket via Redis (include Redis integration / placeholder config).
+- File storage: S3-compatible integration placeholder (MinIO/Arvan config sample).
+- AI microservice: Python FastAPI service scaffold (placeholder endpoints for image analysis/recommendation).
+- Caching/queue: Redis usage examples for chat and queue.
+- Dev environment: .replit (or start scripts) so `run` launches both frontend and backend and the AI microservice concurrently.
+- Environment: .env.example with all required env vars documented.
+-IMPORTANT: All UI text, labels, buttons, navigation, messages, placeholders, and error messages must be fully in Persian (Farsi). The layout must fully support RTL (right-to-left) including Tailwind RTL config. All seed data (names, posts, comments, product descriptions) must also be in Persian. Use IranYekan or a similar Farsi-friendly font fallback.
+
+
+3) UI / UX (IMPORTANT)
+- Style: "Hybrid Minimal Sporty" — minimal, clean, high whitespace, card-based layout with a sporty energy.
+- Color palette: provide one selected palette (Black matte + orange neon) and supply CSS variables for two alternatives (Blue sporty, Lime green).
+- Typography: use Inter (or equivalent web-safe modern font) and include recommendations for Persian font fallback (IranYekan) for RTL support.
+- Navigation: bottom nav for mobile (Home, Coaches, Feed, Programs, Profile) and top-left global nav for desktop.
+- Key UI pages/components to scaffold: Home (personalized feed), Coaches list + filters, Coach profile, User profile + progress timeline, Experience feed (posts, likes, comments), Training program page, Messaging (chat), Education hub, Supplement store & product page, League page (rankings, badges), Settings.
+- Provide accessible components, responsive breakpoints, card components, progress rings, badges, and sample animations.
+
+4) FEATURES & SCOPE (MVP + scaffolds)
+- Authentication: JWT-based signup/login, roles User and Coach, email/password and social sign-in placeholders.
+- Coaches Marketplace: filterable list (price, gender, specialty, experience, style), coach profile with bio, credentials, before/after gallery, reviews, sample programs.
+- Training Program System: coach can create programs (weeks, days, exercises, video attachments). User can mark workouts done and record weights.
+- Messaging: real-time chat between coach and client (WebSocket + Redis), chat list, unread count.
+- Social Feed: post text + images, like, comment, follow/unfollow, basic search.
+- Q&A Hub: question submission and threaded answers (seed sample Q&A).
+- Challenges: create/join weekly/monthly challenges with progress tracking and badges.
+- League System: monthly league grouping of 100 users with scoring engine (implement scoring service with placeholder weights: social activity low, coach rating, AI photo-analysis, program adherence).
+- Supplement Store: product listing, product detail, reviews, cart + checkout placeholder.
+- Progress Timeline: user profile shows monthly photos, weight/bodyfat/strength charts (use seed data), badges.
+- AI endpoints: placeholder image analysis endpoint (FastAPI) that returns mocked metrics; integrate a “call” from backend to AI microservice.
+- Admin/Seed Data: seed users (coaches + users), sample posts, sample coaches, sample programs, sample supplements, sample leagues.
+
+5) ARCHITECTURE & FILE STRUCTURE
+- Provide the following top-level layout:
+  frontend/ (Next.js app)
+  backend/ (nestjs app)
+  ai/ (fastapi scaffold)
+  prisma/ (schema + seed)
+  infra/ (replit start scripts, sample redis & minio configs)
+- Include sample Dockerfile templates (optional) and clear local dev instructions.
+
+6) DATABASE & MODELS (Prisma)
+- Include models for User, CoachProfile, Program, WorkoutDay, Exercise, Post, Comment, Follow, Message, Conversation, Supplement, Order, Challenge, League, Badge, Photo, ProgressMetric, Review.
+- Provide prisma migrations and example seed script to populate the app for demo.
+
+7) RUN & DEMO
+- Create run scripts so developer can start everything with a single command (e.g., `npm run dev` top-level starts frontend, backend, and ai microservice concurrently).
+- Provide a README with clear steps to run locally (how to set env vars, how to run prisma migrate, how to run seed).
+- Provide example requests (curl or Postman collection) to test key endpoints: auth, create post, create program, send chat message, submit monthly photo, league scoring run.
+
+8) QUALITY & DELIVERY
+- Write clean, modular, well-commented code. Create README docs for each service (frontend, backend, ai).
+- Include TypeScript across Node stack.
+- Add basic tests for critical backend services (auth, messaging, league scoring).
+- Seed UI with realistic demo data so that the UI surfaces meaningful lists, charts and ranks.
+- Include basic CI config (GitHub Actions example) that runs lint & tests.
+
+9) LIMITS & PLACEHOLDERS
+- Real payment gateway integration may be stubbed; include placeholder for Stripe (server + client) with a "test mode" checkout.
+- AI image analysis must be mocked with realistic responses but the FastAPI service should have full plumbing to accept uploads and return JSON.
+
+10) FINALIZE
+- When complete, output a concise checklist of created files, how to run, and what to demo.
+- Ensure the Replit project is runnable and demoable inside Replit with at least one seeded coach, two seeded users, sample posts, at least one seeded program and one seeded supplement.
+
+--- END OF COMMAND ---
