@@ -1,70 +1,114 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, Newspaper, Dumbbell, User } from "lucide-react";
+import { Home, Users, MessagesSquare, Dumbbell, User, PenSquare, MessageCircle } from "lucide-react";
 import { translations } from "@/lib/persian";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 
-const navItems = [
+// Nav items for regular users (athletes)
+const userNavItems = [
   { path: "/", icon: Home, label: translations.nav.home },
   { path: "/coaches", icon: Users, label: translations.nav.coaches },
-  { path: "/feed", icon: Newspaper, label: translations.nav.feed },
+  { path: "/education", icon: MessagesSquare, label: "انجمن" },
   { path: "/programs", icon: Dumbbell, label: translations.nav.programs },
   { path: "/profile", icon: User, label: translations.nav.profile },
 ];
 
+// Nav items for coaches
+const coachNavItems = [
+  { path: "/", icon: Home, label: "خانه" },
+  { path: "/coach/students", icon: Users, label: "شاگردها" },
+  { path: "/coach/program-builder", icon: PenSquare, label: "برنامه‌ساز" },
+  { path: "/messages", icon: MessageCircle, label: "پیام‌ها" },
+  { path: "/profile", icon: User, label: "پروفایل" },
+];
+
+// Haptic feedback
+const triggerHaptic = () => {
+  if ('vibrate' in navigator) {
+    navigator.vibrate(10);
+  }
+};
+
 export function BottomNav() {
   const [location] = useLocation();
 
+  const { data: currentUser } = useQuery<any>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  // Select nav items based on user role
+  const navItems = currentUser?.role === "coach" ? coachNavItems : userNavItems;
+
   return (
-    <nav 
+    <nav
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       data-testid="nav-bottom"
     >
-      {/* Glass background */}
-      <div className="absolute inset-0 bg-card/90 backdrop-blur-xl border-t border-border/50" />
-      
-      <div className="relative flex items-center justify-around h-18 px-2 safe-area-pb">
+      {/* Glass background with blur */}
+      <div className="absolute inset-0 bg-card/85 backdrop-blur-2xl border-t border-border/30" />
+
+      <div className="relative flex items-center justify-around h-16 px-1">
         {navItems.map((item) => {
-          const isActive = location === item.path || 
+          const isActive = location === item.path ||
             (item.path !== "/" && location.startsWith(item.path));
-          
+
           return (
             <Link key={item.path} href={item.path}>
-              <button
+              <motion.button
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-2xl transition-all duration-300",
-                  isActive 
-                    ? "text-primary" 
-                    : "text-muted-foreground hover:text-foreground active:scale-95"
+                  "relative flex flex-col items-center justify-center gap-0.5 py-2 px-5 rounded-2xl",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground"
                 )}
+                whileTap={{ scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                onClick={triggerHaptic}
                 data-testid={`nav-${item.path.replace("/", "") || "home"}`}
               >
-                {/* Active background */}
+                {/* Active background pill */}
                 {isActive && (
-                  <span className="absolute inset-0 bg-primary/10 rounded-2xl" />
-                )}
-                
-                {/* Icon */}
-                <div className="relative">
-                  <item.icon 
-                    className={cn(
-                      "h-6 w-6 transition-all duration-300",
-                      isActive && "scale-110"
-                    )} 
+                  <motion.span
+                    className="absolute inset-0 bg-primary/12 rounded-2xl"
+                    layoutId="navIndicator"
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   />
-                  {/* Active dot */}
-                  {isActive && (
-                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary rounded-full shadow-lg shadow-primary/50" />
+                )}
+
+                {/* Icon with spring animation */}
+                <motion.div
+                  className="relative"
+                  animate={{
+                    scale: isActive ? 1.15 : 1,
+                    y: isActive ? -2 : 0
+                  }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                >
+                  <item.icon
+                    className={cn(
+                      "h-6 w-6",
+                      isActive && "drop-shadow-sm"
+                    )}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                </motion.div>
+
+                {/* Label with fade */}
+                <motion.span
+                  className={cn(
+                    "text-[10px] leading-tight",
+                    isActive ? "font-bold" : "font-medium"
                   )}
-                </div>
-                
-                {/* Label */}
-                <span className={cn(
-                  "text-[10px] transition-all duration-300",
-                  isActive ? "font-bold" : "font-medium"
-                )}>
+                  animate={{
+                    opacity: isActive ? 1 : 0.7,
+                    y: isActive ? 0 : 1
+                  }}
+                >
                   {item.label}
-                </span>
-              </button>
+                </motion.span>
+              </motion.button>
             </Link>
           );
         })}

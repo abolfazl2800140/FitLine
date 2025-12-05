@@ -54,17 +54,19 @@ export function PostCard({
   const [likeAnimating, setLikeAnimating] = useState(false);
 
   const handleLike = () => {
+    // Optimistic update
     setLiked(!liked);
     setLikes(liked ? likes - 1 : likes + 1);
     if (!liked) {
       setLikeAnimating(true);
       setTimeout(() => setLikeAnimating(false), 800);
     }
+    // Call API
     onLike?.();
   };
 
   return (
-    <Card 
+    <Card
       className={cn("overflow-hidden border-0 bg-card/80 hover:bg-card transition-colors duration-300", className)}
       data-testid={`card-post-${id}`}
     >
@@ -96,14 +98,14 @@ export function PostCard({
 
       <CardContent className="px-4 py-2">
         <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
-        
+
         {images.length > 0 && (
           <div className={cn(
             "mt-3 rounded-lg overflow-hidden",
             images.length === 1 ? "grid-cols-1" : "grid grid-cols-2 gap-1"
           )}>
             {images.slice(0, 4).map((image, index) => (
-              <div 
+              <div
                 key={index}
                 className={cn(
                   "relative bg-muted",
@@ -131,9 +133,9 @@ export function PostCard({
 
       <CardFooter className="p-5 pt-3 flex items-center justify-between border-t border-border/30">
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className={cn(
               "gap-2 h-9 px-3 rounded-full press-effect",
               liked && "text-red-500 bg-red-500/10"
@@ -142,7 +144,7 @@ export function PostCard({
             data-testid={`button-like-${id}`}
           >
             <Heart className={cn(
-              "h-5 w-5 transition-transform", 
+              "h-5 w-5 transition-transform",
               liked && "fill-current",
               likeAnimating && "heart-beat"
             )} />
@@ -150,9 +152,9 @@ export function PostCard({
               {toPersianNumber(likes)}
             </span>
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="gap-2 h-9 px-3 rounded-full press-effect"
             onClick={onComment}
             data-testid={`button-comment-${id}`}
@@ -160,9 +162,9 @@ export function PostCard({
             <MessageCircle className="h-5 w-5" />
             <span className="text-sm font-medium">{toPersianNumber(commentCount)}</span>
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-9 px-3 rounded-full press-effect"
             onClick={onShare}
             data-testid={`button-share-${id}`}
@@ -170,11 +172,11 @@ export function PostCard({
             <Share2 className="h-5 w-5" />
           </Button>
         </div>
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="icon"
           className={cn(
-            "h-9 w-9 rounded-full press-effect", 
+            "h-9 w-9 rounded-full press-effect",
             saved && "text-primary bg-primary/10"
           )}
           onClick={() => setSaved(!saved)}

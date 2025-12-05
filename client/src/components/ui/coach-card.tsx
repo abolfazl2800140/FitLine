@@ -41,7 +41,7 @@ export function CoachCard({
   if (compact) {
     return (
       <Link href={`/coaches/${id}`}>
-        <Card 
+        <Card
           className={cn(
             "overflow-hidden group cursor-pointer border border-border/50 bg-card hover:shadow-md transition-all",
             className
@@ -79,7 +79,7 @@ export function CoachCard({
   }
 
   return (
-    <Card 
+    <Card
       className={cn(
         "overflow-hidden card-sport interactive-card group cursor-pointer border-0 bg-card/80",
         className
@@ -109,7 +109,7 @@ export function CoachCard({
             <h3 className="font-bold text-lg mb-2 group-hover:text-primary transition-colors duration-300">
               {name}
             </h3>
-            
+
             {/* Specialty Badge */}
             <Badge variant="secondary" className="mb-4 px-3 py-1 text-xs font-medium rounded-full">
               {specialty}
@@ -146,9 +146,14 @@ export function CoachCard({
                   <span className="text-xs font-normal text-muted-foreground mr-1">{translations.coaches.toman}</span>
                 </span>
               </div>
-              <Button 
-                className="w-full glow-green group/btn font-bold" 
+              <Button
+                className="w-full glow-green group/btn font-bold"
                 data-testid={`button-book-coach-${id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // TODO: Open booking modal
+                }}
               >
                 {translations.coaches.bookSession}
                 <ArrowLeft className="h-4 w-4 mr-2 rtl-flip group-hover/btn:-translate-x-1 transition-transform" />

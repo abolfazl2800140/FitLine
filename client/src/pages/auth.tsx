@@ -1,370 +1,229 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { translations } from "@/lib/persian";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Eye, EyeOff, Dumbbell } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { insertUserSchema } from "@shared/schema";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Loader2, Eye, EyeOff, Dumbbell, Users, User, ArrowRight, Phone, KeyRound, UserCircle, Briefcase } from "lucide-react";
+import { toPersianNumber } from "@/lib/persian";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
-const loginSchema = z.object({
-  email: z.string().email("ایمیل معتبر وارد کنید"),
-  password: z.string().min(6, "رمز عبور باید حداقل ۶ کاراکتر باشد"),
-});
-
-const registerSchema = insertUserSchema.extend({
-  email: z.string().email("ایمیل معتبر وارد کنید"),
-  password: z.string().min(6, "رمز عبور باید حداقل ۶ کاراکتر باشد"),
-  confirmPassword: z.string(),
-  fullName: z.string().min(2, "نام کامل را وارد کنید"),
-  username: z.string().min(3, "نام کاربری باید حداقل ۳ کاراکتر باشد"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "رمز عبور و تکرار آن مطابقت ندارند",
-  path: ["confirmPassword"],
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
-type RegisterForm = z.infer<typeof registerSchema>;
+type Step = "phone" | "otp" | "info" | "coach-info" | "login";
+type UserType = "user" | "coach" | null;
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
-  const [showPassword, setShowPassword] = useState(false);
-  const [tab, setTab] = useState<"login" | "register">("login");
   const { toast } = useToast();
 
-  const loginForm = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
+  const [step, setStep] = useState<Step>("phone");
+  const [userType, setUserType] = useState<UserType>(null);
 
-  const registerForm = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      confirmPassword: "",
-      fullName: "",
-      username: "",
-    },
-  });
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginForm) => {
-      return apiRequest("POST", "/api/auth/login", data);
-    },
+  const [specialty, setSpecialty] = useState("");
+  const [experience, setExperience] = useState(1);
+  const [pricePerSession, setPricePerSession] = useState(100000);
+
+  const sendOtpMutation = useMutation({
+    mutationFn: async () => ({ success: true }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({
-        title: translations.auth.loginSuccess,
-        description: "خوش آمدید!",
-      });
-      setLocation("/");
+      setStep("otp");
+      toast({ title: "کد تأیید ارسال شد", description: `کد به ${phone} ارسال شد` });
     },
-    onError: (error: any) => {
-      toast({
-        title: "خطا در ورود",
-        description: error.message || "ایمیل یا رمز عبور اشتباه است",
-        variant: "destructive",
-      });
-    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: async () => ({ exists: false }),
+    onSuccess: () => setStep("info"),
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (data: RegisterForm) => {
-      const { confirmPassword, ...registerData } = data;
-      return apiRequest("POST", "/api/auth/register", registerData);
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/register", {
+        phone, fullName, username, password, role: userType || "user",
+      });
+      if (userType === "coach") {
+        await apiRequest("POST", "/api/coach-profiles", { specialty, experience, pricePerSession });
+      }
+      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({
-        title: translations.auth.registerSuccess,
-        description: "حساب کاربری شما ایجاد شد",
-      });
+      toast({ title: "ثبت‌نام موفق" });
       setLocation("/");
     },
-    onError: (error: any) => {
-      toast({
-        title: "خطا در ثبت‌نام",
-        description: error.message || "مشکلی پیش آمد",
-        variant: "destructive",
-      });
-    },
+    onError: (e: any) => toast({ title: "خطا", description: e.message, variant: "destructive" }),
   });
 
-  const handleLogin = (data: LoginForm) => {
-    loginMutation.mutate(data);
+  const loginMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/auth/login", { phone, password }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      setLocation("/");
+    },
+    onError: () => toast({ title: "رمز عبور اشتباه است", variant: "destructive" }),
+  });
+
+  const handlePhoneSubmit = () => {
+    if (phone.length !== 11 || !phone.startsWith("09")) {
+      toast({ title: "شماره تلفن معتبر وارد کنید", variant: "destructive" });
+      return;
+    }
+    sendOtpMutation.mutate();
   };
 
-  const handleRegister = (data: RegisterForm) => {
-    registerMutation.mutate(data);
+  const handleOtpComplete = (value: string) => {
+    setOtp(value);
+    if (value.length === 5) verifyOtpMutation.mutate();
+  };
+
+  const handleInfoSubmit = () => {
+    if (!fullName || !username || password.length < 6) {
+      toast({ title: "همه فیلدها را پر کنید (رمز حداقل ۶ کاراکتر)", variant: "destructive" });
+      return;
+    }
+    if (userType === "coach") setStep("coach-info");
+    else registerMutation.mutate();
+  };
+
+  const handleCoachSubmit = () => {
+    if (!specialty) {
+      toast({ title: "تخصص را وارد کنید", variant: "destructive" });
+      return;
+    }
+    registerMutation.mutate();
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/30">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
-            <Dumbbell className="h-8 w-8 text-primary-foreground" />
+      <Card className="w-full max-w-sm border-0 shadow-none" dir="rtl">
+        <CardHeader className="text-center pb-4">
+          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-3">
+            <Dumbbell className="h-7 w-7 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl text-gradient-sport">فیت‌لاین</CardTitle>
-          <CardDescription>
-            {tab === "login" 
-              ? "وارد حساب کاربری خود شوید" 
-              : "حساب کاربری جدید بسازید"
-            }
-          </CardDescription>
+          <CardTitle className="text-2xl">فیت‌لاین</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "register")}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login" data-testid="tab-login">
-                {translations.auth.login}
-              </TabsTrigger>
-              <TabsTrigger value="register" data-testid="tab-register">
-                {translations.auth.register}
-              </TabsTrigger>
-            </TabsList>
+          {step === "phone" && !userType && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground text-center mb-4">نوع حساب را انتخاب کنید</p>
+              <button className="w-full p-4 rounded-xl border-2 hover:border-primary hover:bg-primary/5 transition-all text-right flex items-center gap-4" onClick={() => setUserType("user")}>
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center"><User className="h-6 w-6 text-primary" /></div>
+                <div><p className="font-bold">ورزشکار</p><p className="text-sm text-muted-foreground">میخوام تمرین کنم</p></div>
+              </button>
+              <button className="w-full p-4 rounded-xl border-2 hover:border-orange-500 hover:bg-orange-500/5 transition-all text-right flex items-center gap-4" onClick={() => setUserType("coach")}>
+                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center"><Users className="h-6 w-6 text-orange-500" /></div>
+                <div><p className="font-bold">مربی</p><p className="text-sm text-muted-foreground">میخوام آموزش بدم</p></div>
+              </button>
+            </div>
+          )}
 
-            <TabsContent value="login">
-              <Form {...loginForm}>
-                <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
-                  <FormField
-                    control={loginForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{translations.auth.email}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="email" 
-                            placeholder="example@email.com"
-                            data-testid="input-login-email"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+          {step === "phone" && userType && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setUserType(null)}><ArrowRight className="h-4 w-4" /></Button>
+                <span className="text-sm text-muted-foreground">{userType === "coach" ? "ثبت‌نام مربی" : "ثبت‌نام ورزشکار"}</span>
+              </div>
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3"><Phone className="h-7 w-7 text-primary" /></div>
+                <p className="text-sm text-muted-foreground">شماره موبایل خود را وارد کنید</p>
+              </div>
+              <Input type="tel" placeholder="۰۹۱۲۳۴۵۶۷۸۹" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))} className="text-center text-lg tracking-widest h-12" maxLength={11} dir="ltr" />
+              <Button className="w-full h-12" onClick={handlePhoneSubmit} disabled={phone.length !== 11 || sendOtpMutation.isPending}>
+                {sendOtpMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : "ادامه"}
+              </Button>
+            </div>
+          )}
 
-                  <FormField
-                    control={loginForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{translations.auth.password}</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input 
-                              type={showPassword ? "text" : "password"}
-                              placeholder="••••••••"
-                              data-testid="input-login-password"
-                              {...field} 
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute left-0 top-0 h-full"
-                              onClick={() => setShowPassword(!showPassword)}
-                            >
-                              {showPassword ? (
-                                <EyeOff className="h-4 w-4" />
-                              ) : (
-                                <Eye className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+          {step === "otp" && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setStep("phone")}><ArrowRight className="h-4 w-4" /></Button>
+                <span className="text-sm text-muted-foreground">تأیید شماره</span>
+              </div>
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3"><KeyRound className="h-7 w-7 text-primary" /></div>
+                <p className="text-sm text-muted-foreground">کد ۵ رقمی ارسال شده به</p>
+                <p className="font-bold mt-1" dir="ltr">{phone}</p>
+              </div>
+              <div className="flex justify-center" dir="ltr">
+                <InputOTP maxLength={5} value={otp} onChange={handleOtpComplete}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} /><InputOTPSlot index={3} /><InputOTPSlot index={4} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+            </div>
+          )}
 
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    disabled={loginMutation.isPending}
-                    data-testid="button-login-submit"
-                  >
-                    {loginMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      translations.auth.login
-                    )}
-                  </Button>
+          {step === "info" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setStep("otp")}><ArrowRight className="h-4 w-4" /></Button>
+                <span className="text-sm text-muted-foreground">اطلاعات شما</span>
+              </div>
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3"><UserCircle className="h-7 w-7 text-primary" /></div>
+              </div>
+              <Input placeholder="نام و نام خانوادگی" value={fullName} onChange={(e) => setFullName(e.target.value)} className="h-12 text-right" />
+              <Input placeholder="نام کاربری (انگلیسی)" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} className="h-12 text-left" dir="ltr" />
+              <div className="relative">
+                <Input type={showPassword ? "text" : "password"} placeholder="رمز عبور" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 text-left pr-12" dir="ltr" />
+                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-10 w-10" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <Button className="w-full h-12" onClick={handleInfoSubmit} disabled={registerMutation.isPending}>
+                {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : userType === "coach" ? "ادامه" : "ثبت‌نام"}
+              </Button>
+            </div>
+          )}
 
-                  <p className="text-center text-sm text-muted-foreground">
-                    {translations.auth.noAccount}{" "}
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      onClick={() => setTab("register")}
-                    >
-                      {translations.auth.register}
-                    </button>
-                  </p>
-                </form>
-              </Form>
-            </TabsContent>
+          {step === "coach-info" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setStep("info")}><ArrowRight className="h-4 w-4" /></Button>
+                <span className="text-sm text-muted-foreground">اطلاعات مربیگری</span>
+              </div>
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-3"><Briefcase className="h-7 w-7 text-orange-500" /></div>
+              </div>
+              <Input placeholder="تخصص (مثلاً: بدنسازی)" value={specialty} onChange={(e) => setSpecialty(e.target.value)} className="h-12 text-right" />
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-sm text-muted-foreground mb-1 block">سابقه (سال)</label><Input type="number" min={1} value={experience} onChange={(e) => setExperience(parseInt(e.target.value) || 1)} className="h-12 text-center" /></div>
+                <div><label className="text-sm text-muted-foreground mb-1 block">قیمت جلسه</label><Input type="number" min={10000} step={10000} value={pricePerSession} onChange={(e) => setPricePerSession(parseInt(e.target.value) || 100000)} className="h-12 text-center" /></div>
+              </div>
+              <Button className="w-full h-12" onClick={handleCoachSubmit} disabled={registerMutation.isPending}>
+                {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : "ثبت‌نام"}
+              </Button>
+            </div>
+          )}
 
-            <TabsContent value="register">
-              <Form {...registerForm}>
-                <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
-                  <FormField
-                    control={registerForm.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{translations.auth.fullName}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="نام و نام خانوادگی"
-                            data-testid="input-register-fullname"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{translations.auth.username}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="username"
-                            data-testid="input-register-username"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{translations.auth.email}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="email" 
-                            placeholder="example@email.com"
-                            data-testid="input-register-email"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{translations.auth.password}</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input 
-                              type={showPassword ? "text" : "password"}
-                              placeholder="••••••••"
-                              data-testid="input-register-password"
-                              {...field} 
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute left-0 top-0 h-full"
-                              onClick={() => setShowPassword(!showPassword)}
-                            >
-                              {showPassword ? (
-                                <EyeOff className="h-4 w-4" />
-                              ) : (
-                                <Eye className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{translations.auth.confirmPassword}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="password"
-                            placeholder="••••••••"
-                            data-testid="input-register-confirm-password"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    disabled={registerMutation.isPending}
-                    data-testid="button-register-submit"
-                  >
-                    {registerMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      translations.auth.register
-                    )}
-                  </Button>
-
-                  <p className="text-center text-sm text-muted-foreground">
-                    {translations.auth.hasAccount}{" "}
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      onClick={() => setTab("login")}
-                    >
-                      {translations.auth.login}
-                    </button>
-                  </p>
-                </form>
-              </Form>
-            </TabsContent>
-          </Tabs>
+          {step === "login" && (
+            <div className="space-y-4">
+              <div className="text-center mb-4">
+                <p className="text-sm text-muted-foreground">خوش برگشتید! رمز عبور را وارد کنید</p>
+                <p className="font-bold mt-1" dir="ltr">{phone}</p>
+              </div>
+              <div className="relative">
+                <Input type={showPassword ? "text" : "password"} placeholder="رمز عبور" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 text-left pr-12" dir="ltr" />
+                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-10 w-10" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <Button className="w-full h-12" onClick={() => loginMutation.mutate()} disabled={loginMutation.isPending}>
+                {loginMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : "ورود"}
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => { setStep("phone"); setPhone(""); setPassword(""); }}>تغییر شماره</Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

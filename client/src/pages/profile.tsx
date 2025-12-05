@@ -21,6 +21,9 @@ import {
   TrendingUp,
   Award,
   Image as ImageIcon,
+  Flame,
+  FileText,
+  Scale,
 } from "lucide-react";
 import {
   LineChart,
@@ -42,11 +45,18 @@ const mockWeightData = [
 ];
 
 const mockBadges = [
-  { id: "1", name: "اولین تمرین", icon: "🏋️", category: "شروع" },
-  { id: "2", name: "۷ روز متوالی", icon: "🔥", category: "تداوم" },
-  { id: "3", name: "اولین پست", icon: "📝", category: "اجتماعی" },
-  { id: "4", name: "۱۰ کیلو کاهش وزن", icon: "⚖️", category: "پیشرفت" },
+  { id: "1", name: "اولین تمرین", icon: "dumbbell", category: "شروع" },
+  { id: "2", name: "۷ روز متوالی", icon: "flame", category: "تداوم" },
+  { id: "3", name: "اولین پست", icon: "filetext", category: "اجتماعی" },
+  { id: "4", name: "۱۰ کیلو کاهش وزن", icon: "scale", category: "پیشرفت" },
 ];
+
+const badgeIcons: Record<string, React.ReactNode> = {
+  dumbbell: <Dumbbell className="h-8 w-8 text-primary" />,
+  flame: <Flame className="h-8 w-8 text-orange-500" />,
+  filetext: <FileText className="h-8 w-8 text-blue-500" />,
+  scale: <Scale className="h-8 w-8 text-green-500" />,
+};
 
 export default function ProfilePage() {
   const [tab, setTab] = useState("timeline");
@@ -109,9 +119,9 @@ export default function ProfilePage() {
                   {currentUser?.fullName?.charAt(0) || "؟"}
                 </AvatarFallback>
               </Avatar>
-              <Button 
-                size="icon" 
-                variant="secondary" 
+              <Button
+                size="icon"
+                variant="secondary"
                 className="absolute bottom-0 left-0 h-8 w-8 rounded-full"
               >
                 <Camera className="h-4 w-4" />
@@ -232,17 +242,17 @@ export default function ProfilePage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={mockWeightData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       className="text-xs"
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
-                    <YAxis 
+                    <YAxis
                       className="text-xs"
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
                       domain={['dataMin - 2', 'dataMax + 2']}
                     />
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
@@ -250,9 +260,9 @@ export default function ProfilePage() {
                       }}
                       labelStyle={{ color: 'hsl(var(--foreground))' }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="weight" 
+                    <Line
+                      type="monotone"
+                      dataKey="weight"
                       stroke="hsl(var(--primary))"
                       strokeWidth={2}
                       dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2 }}
@@ -337,7 +347,9 @@ export default function ProfilePage() {
             {badges.map((badge: any) => (
               <Card key={badge.id} className="text-center hover-elevate">
                 <CardContent className="p-4">
-                  <div className="text-4xl mb-2">{badge.icon}</div>
+                  <div className="mb-2 flex justify-center">
+                    {badgeIcons[badge.icon] || <Award className="h-8 w-8 text-primary" />}
+                  </div>
                   <p className="font-medium text-sm">{badge.name}</p>
                   <Badge variant="secondary" className="mt-2 text-xs">
                     {badge.category}

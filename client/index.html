@@ -2,14 +2,20 @@
 <html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
-    <meta name="description" content="Elite Fitness Hub - بزرگترین بازار مربیان فیتنس، شبکه اجتماعی ورزشی، برنامه‌های تمرینی و فروشگاه مکمل" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="description" content="Fit Line - بزرگترین بازار مربیان فیتنس، شبکه اجتماعی ورزشی، برنامه‌های تمرینی و فروشگاه مکمل" />
+    <meta name="theme-color" content="#22c55e" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#166534" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Fit Line" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-tap-highlight" content="no" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="apple-touch-startup-image" href="/favicon.png" />
     
     <!-- Preconnect for faster font loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,7 +28,7 @@
     <!-- Vazirmatn - Better Persian font with all weights -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
     
-    <title>Elite Fitness Hub | بزرگترین پلتفرم فیتنس ایران</title>
+    <title>Fit Line | بزرگترین پلتفرم فیتنس ایران</title>
     
     <style>
       /* Vazirmatn as primary Persian font - more reliable than IranYekan CDN */
@@ -61,49 +67,114 @@
         font-display: swap;
       }
       
-      /* Loading screen */
+      /* Native-like splash screen */
       #loading-screen {
         position: fixed;
         inset: 0;
-        background: #ffffff;
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 9999;
-        transition: opacity 0.3s ease;
+        transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       }
       #loading-screen.hidden {
         opacity: 0;
+        transform: scale(1.1);
         pointer-events: none;
       }
-      .loader {
-        width: 48px;
-        height: 48px;
-        border: 4px solid rgba(34, 197, 94, 0.2);
-        border-top-color: #22c55e;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
+      .splash-logo {
+        width: 80px;
+        height: 80px;
+        background: white;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: logoFloat 2s ease-in-out infinite;
+        margin-bottom: 24px;
       }
-      @keyframes spin {
-        to { transform: rotate(360deg); }
+      .splash-logo span {
+        font-size: 40px;
+        font-weight: 900;
+        color: #22c55e;
+      }
+      .splash-text {
+        color: white;
+        font-family: 'Vazirmatn', sans-serif;
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 32px;
+        opacity: 0;
+        animation: fadeInUp 0.6s ease-out 0.3s forwards;
+      }
+      .loader-dots {
+        display: flex;
+        gap: 8px;
+      }
+      .loader-dots span {
+        width: 10px;
+        height: 10px;
+        background: rgba(255,255,255,0.8);
+        border-radius: 50%;
+        animation: dotPulse 1.4s ease-in-out infinite;
+      }
+      .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
+      .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+      
+      @keyframes logoFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes dotPulse {
+        0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+        40% { transform: scale(1); opacity: 1; }
       }
     </style>
   </head>
   <body>
-    <!-- Loading screen -->
+    <!-- Native-like splash screen -->
     <div id="loading-screen">
-      <div class="loader"></div>
+      <div class="splash-logo">
+        <span>F</span>
+      </div>
+      <div class="splash-text">Fit Line</div>
+      <div class="loader-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
     </div>
     
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Hide loading screen when app is ready -->
+    <!-- Register Service Worker & Hide splash -->
     <script>
+      // Register Service Worker for PWA - only in production
+      if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registered'))
+            .catch(err => console.log('SW registration failed:', err));
+        });
+      }
+      
+      // Hide splash screen with native-like timing
       window.addEventListener('load', () => {
         setTimeout(() => {
           document.getElementById('loading-screen')?.classList.add('hidden');
-        }, 300);
+          // Remove from DOM after animation
+          setTimeout(() => {
+            document.getElementById('loading-screen')?.remove();
+          }, 400);
+        }, 800);
       });
     </script>
   </body>

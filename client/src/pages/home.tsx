@@ -9,11 +9,11 @@ import { ChallengeCard, ChallengeCardSkeleton } from "@/components/ui/challenge-
 import { translations, toPersianNumber } from "@/lib/persian";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { 
-  Dumbbell, 
-  Flame, 
-  Trophy, 
-  TrendingUp, 
+import {
+  Dumbbell,
+  Flame,
+  Trophy,
+  TrendingUp,
   ChevronLeft,
   Target,
   Users,
@@ -23,6 +23,7 @@ import {
   Calendar,
   Clock
 } from "lucide-react";
+import CoachHomePage from "@/pages/coach/home";
 
 
 export default function HomePage() {
@@ -46,7 +47,12 @@ export default function HomePage() {
     queryKey: ["/api/auth/me"],
   });
 
-  // App-style dashboard for logged-in users
+  // If user is a coach, show coach dashboard
+  if (user?.role === "coach") {
+    return <CoachHomePage />;
+  }
+
+  // App-style dashboard for logged-in users (athletes)
   if (user) {
     return (
       <div className="min-h-screen bg-background">
@@ -54,7 +60,6 @@ export default function HomePage() {
         <section className="px-5 pt-4 pb-2">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-muted-foreground text-sm">سلام 👋</p>
               <h1 className="text-xl font-bold">{user.fullName || "کاربر"}</h1>
             </div>
             <div className="flex items-center gap-2">
@@ -194,7 +199,10 @@ export default function HomePage() {
         {/* Active Challenges */}
         <section className="py-4">
           <div className="flex items-center justify-between px-5 mb-3">
-            <h2 className="font-bold text-lg">🔥 چالش‌های فعال</h2>
+            <h2 className="font-bold text-lg flex items-center gap-2">
+              <Flame className="h-5 w-5 text-orange-500" />
+              چالش‌های فعال
+            </h2>
             <Link href="/challenges">
               <Button variant="ghost" size="sm" className="gap-1 text-primary">
                 همه

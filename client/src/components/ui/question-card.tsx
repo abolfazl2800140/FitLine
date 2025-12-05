@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,40 +47,70 @@ export function QuestionCard({
   onVote,
   className,
 }: QuestionCardProps) {
+  const [localVote, setLocalVote] = useState<1 | -1 | 0>(userVote);
+  const [localVoteCount, setLocalVoteCount] = useState(voteCount);
+
+  const handleVote = (value: 1 | -1) => {
+    // Toggle vote: if same vote clicked, remove it
+    const newVote = localVote === value ? 0 : value;
+
+    // Calculate vote count change
+    let countChange = 0;
+    if (localVote === 0) {
+      countChange = value;
+    } else if (newVote === 0) {
+      countChange = -localVote;
+    } else {
+      countChange = value * 2; // Switching from -1 to 1 or vice versa
+    }
+
+    setLocalVote(newVote as 1 | -1 | 0);
+    setLocalVoteCount(prev => prev + countChange);
+    onVote?.(value);
+  };
+
   return (
-    <Card 
+    <Card
       className={cn("overflow-hidden hover-elevate transition-all", className)}
       data-testid={`card-question-${id}`}
     >
       <div className="flex">
         <div className="flex flex-col items-center gap-1 p-4 bg-muted/30">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className={cn(
-              "h-8 w-8",
-              userVote === 1 && "text-primary"
+              "h-8 w-8 transition-colors hover:bg-transparent hover:text-inherit",
+              localVote === 1 && "text-primary bg-primary/10"
             )}
-            onClick={() => onVote?.(1)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleVote(1);
+            }}
             data-testid={`button-upvote-${id}`}
           >
             <ChevronUp className="h-5 w-5" />
           </Button>
           <span className={cn(
             "font-bold text-lg",
-            voteCount > 0 && "text-primary",
-            voteCount < 0 && "text-destructive"
+            localVoteCount > 0 && "text-primary",
+            localVoteCount < 0 && "text-destructive"
           )}>
-            {toPersianNumber(voteCount)}
+            {toPersianNumber(localVoteCount)}
           </span>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             className={cn(
-              "h-8 w-8",
-              userVote === -1 && "text-destructive"
+              "h-8 w-8 transition-colors hover:bg-transparent hover:text-inherit",
+              localVote === -1 && "text-destructive bg-destructive/10"
             )}
-            onClick={() => onVote?.(-1)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleVote(-1);
+            }}
             data-testid={`button-downvote-${id}`}
           >
             <ChevronDown className="h-5 w-5" />
@@ -91,8 +122,8 @@ export function QuestionCard({
             <CardHeader className="p-4 pb-2">
               <div className="flex items-center gap-2 mb-2">
                 {category && (
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={cn("text-xs", categoryColors[category] || categoryColors.general)}
                   >
                     {translations.education.categories[category as keyof typeof translations.education.categories] || category}
@@ -112,7 +143,7 @@ export function QuestionCard({
               <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                 {content}
               </p>
-              
+
               <div className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
                   <AvatarImage src={userAvatar || undefined} />

@@ -102,7 +102,7 @@ export async function registerRoutes(
   app.post('/api/auth/register', async (req, res) => {
     try {
       const data = insertUserSchema.parse(req.body);
-      
+
       const existingEmail = await storage.getUserByEmail(data.email);
       if (existingEmail) {
         return res.status(400).json({ message: 'Email already registered' });
@@ -155,6 +155,26 @@ export async function registerRoutes(
     }
   });
 
+  // Coach profile creation (for coach registration)
+  app.post('/api/coach-profiles', requireAuth, async (req, res) => {
+    try {
+      const { specialty, experience, pricePerSession, about } = req.body;
+
+      const profile = await storage.createCoachProfile({
+        userId: req.user!.id,
+        specialty,
+        experience: parseInt(experience),
+        pricePerSession: pricePerSession.toString(),
+        about: about || null,
+        isVerified: false, // Needs admin approval
+      });
+
+      res.json(profile);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || 'Failed to create coach profile' });
+    }
+  });
+
   // Coaches
   app.get('/api/coaches', async (req, res) => {
     try {
@@ -171,7 +191,38 @@ export async function registerRoutes(
       if (!coach) {
         return res.status(404).json({ message: 'Coach not found' });
       }
-      res.json(coach);
+
+      // Get like count
+      const likeCount = await storage.getCoachLikeCount(req.params.id);
+
+      // Check if current user liked this coach
+      let isLiked = false;
+      if (req.isAuthenticated() && req.user) {
+        isLiked = await storage.isCoachLiked(req.user.id, req.params.id);
+      }
+
+      res.json({ ...coach, likeCount, isLiked });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Like/Unlike coach
+  app.post('/api/coaches/:id/like', requireAuth, async (req, res) => {
+    try {
+      await storage.likeCoach(req.user!.id, req.params.id);
+      const likeCount = await storage.getCoachLikeCount(req.params.id);
+      res.json({ success: true, isLiked: true, likeCount });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete('/api/coaches/:id/like', requireAuth, async (req, res) => {
+    try {
+      await storage.unlikeCoach(req.user!.id, req.params.id);
+      const likeCount = await storage.getCoachLikeCount(req.params.id);
+      res.json({ success: true, isLiked: false, likeCount });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -222,7 +273,8 @@ export async function registerRoutes(
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
-      const posts = await storage.getPosts(limit, offset);
+      const userId = req.user?.id;
+      const posts = await storage.getPosts(limit, offset, userId);
       res.json(posts);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -276,6 +328,29 @@ export async function registerRoutes(
     try {
       await storage.unlikePost(req.user!.id, req.params.id);
       res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Comments
+  app.get('/api/posts/:id/comments', async (req, res) => {
+    try {
+      const comments = await storage.getComments(req.params.id);
+      res.json(comments);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post('/api/posts/:id/comments', requireAuth, async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content || !content.trim()) {
+        return res.status(400).json({ message: 'Content is required' });
+      }
+      const comment = await storage.createComment(req.user!.id, req.params.id, content);
+      res.json(comment);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -476,6 +551,57 @@ export async function registerRoutes(
     }
   });
 
+  // Answers
+  app.get('/api/questions/:id/answers', async (req, res) => {
+    try {
+      const answers = await storage.getAnswers(req.params.id);
+      res.json(answers);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post('/api/questions/:id/answers', requireAuth, async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content || !content.trim()) {
+        return res.status(400).json({ message: 'Content is required' });
+      }
+      const answer = await storage.createAnswer(req.user!.id, req.params.id, content);
+      res.json(answer);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Vote on answers
+  app.post('/api/answers/:id/vote', requireAuth, async (req, res) => {
+    try {
+      const { value } = req.body; // 1 for upvote, -1 for downvote
+      if (value !== 1 && value !== -1) {
+        return res.status(400).json({ message: 'Invalid vote value' });
+      }
+      await storage.voteAnswer(req.user!.id, req.params.id, value);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Vote on questions
+  app.post('/api/questions/:id/vote', requireAuth, async (req, res) => {
+    try {
+      const { value } = req.body;
+      if (value !== 1 && value !== -1) {
+        return res.status(400).json({ message: 'Invalid vote value' });
+      }
+      await storage.voteQuestion(req.user!.id, req.params.id, value);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Progress & Badges
   app.get('/api/user/progress-photos', requireAuth, async (req, res) => {
     try {
@@ -497,7 +623,7 @@ export async function registerRoutes(
 
   // WebSocket for real-time messaging
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  
+
   const clients = new Map<string, WebSocket>();
 
   wss.on('connection', (ws, req) => {
@@ -506,7 +632,7 @@ export async function registerRoutes(
     ws.on('message', async (data) => {
       try {
         const message = JSON.parse(data.toString());
-        
+
         if (message.type === 'auth') {
           userId = message.userId;
           if (userId) {
@@ -516,7 +642,7 @@ export async function registerRoutes(
 
         if (message.type === 'message' && userId) {
           const { conversationId, content, recipientId } = message;
-          
+
           const newMessage = await storage.sendMessage({
             conversationId,
             senderId: userId,

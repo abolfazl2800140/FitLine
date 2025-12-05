@@ -5,13 +5,15 @@ import {
   posts, comments, likes, follows, conversations, messages,
   supplements, cartItems, orders, challenges, challengeParticipants,
   leagues, leagueMembers, badges, userBadges, progressPhotos, progressMetrics,
-  reviews, supplementReviews, questions, answers,
+  reviews, supplementReviews, questions, answers, coachLikes,
+  questionVotes, answerVotes,
   type User, type InsertUser, type CoachProfile, type InsertCoachProfile,
   type Program, type InsertProgram, type Post, type InsertPost,
   type Supplement, type InsertSupplement, type Challenge, type InsertChallenge,
   type Question, type InsertQuestion, type Message, type InsertMessage,
   type Conversation, type InsertConversation, type CartItem, type InsertCartItem,
   type ChallengeParticipant, type InsertChallengeParticipant,
+  type CoachLike,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -27,6 +29,10 @@ export interface IStorage {
   getCoaches(filters?: { specialty?: string; gender?: string }): Promise<any[]>;
   getCoach(id: string): Promise<any | undefined>;
   createCoachProfile(profile: InsertCoachProfile): Promise<CoachProfile>;
+  likeCoach(userId: string, coachId: string): Promise<void>;
+  unlikeCoach(userId: string, coachId: string): Promise<void>;
+  isCoachLiked(userId: string, coachId: string): Promise<boolean>;
+  getCoachLikeCount(coachId: string): Promise<number>;
 
   // Programs
   getPrograms(filters?: { difficulty?: string; coachId?: string }): Promise<any[]>;
@@ -35,12 +41,17 @@ export interface IStorage {
   enrollInProgram(userId: string, programId: string): Promise<any>;
 
   // Posts
-  getPosts(limit?: number, offset?: number): Promise<any[]>;
-  getPost(id: string): Promise<any | undefined>;
+  getPosts(limit?: number, offset?: number, userId?: string): Promise<any[]>;
+  getPost(id: string, userId?: string): Promise<any | undefined>;
   getUserPosts(userId: string): Promise<any[]>;
   createPost(post: InsertPost): Promise<Post>;
   likePost(userId: string, postId: string): Promise<void>;
   unlikePost(userId: string, postId: string): Promise<void>;
+  isPostLiked(userId: string, postId: string): Promise<boolean>;
+
+  // Comments
+  getComments(postId: string): Promise<any[]>;
+  createComment(userId: string, postId: string, content: string): Promise<any>;
 
   // Supplements
   getSupplements(filters?: { category?: string; search?: string }): Promise<Supplement[]>;
@@ -73,6 +84,12 @@ export interface IStorage {
   getQuestions(filters?: { category?: string }): Promise<any[]>;
   getQuestion(id: string): Promise<any | undefined>;
   createQuestion(question: InsertQuestion): Promise<Question>;
+
+  // Answers
+  getAnswers(questionId: string): Promise<any[]>;
+  createAnswer(userId: string, questionId: string, content: string): Promise<any>;
+  voteAnswer(userId: string, answerId: string, value: number): Promise<void>;
+  voteQuestion(userId: string, questionId: string, value: number): Promise<void>;
 
   // Progress
   getProgressPhotos(userId: string): Promise<any[]>;
@@ -132,7 +149,7 @@ export class DbStorage implements IStorage {
       })
       .from(coachProfiles)
       .innerJoin(users, eq(coachProfiles.userId, users.id));
-    
+
     return result;
   }
 
@@ -163,13 +180,44 @@ export class DbStorage implements IStorage {
       .innerJoin(users, eq(coachProfiles.userId, users.id))
       .where(eq(coachProfiles.id, id))
       .limit(1);
-    
+
     return result;
   }
 
   async createCoachProfile(profile: InsertCoachProfile): Promise<CoachProfile> {
     const [result] = await db.insert(coachProfiles).values(profile).returning();
     return result;
+  }
+
+  async likeCoach(userId: string, coachId: string): Promise<void> {
+    // Check if already liked
+    const existing = await this.isCoachLiked(userId, coachId);
+    if (!existing) {
+      await db.insert(coachLikes).values({ userId, coachId });
+    }
+  }
+
+  async unlikeCoach(userId: string, coachId: string): Promise<void> {
+    await db.delete(coachLikes).where(
+      and(eq(coachLikes.userId, userId), eq(coachLikes.coachId, coachId))
+    );
+  }
+
+  async isCoachLiked(userId: string, coachId: string): Promise<boolean> {
+    const [result] = await db
+      .select()
+      .from(coachLikes)
+      .where(and(eq(coachLikes.userId, userId), eq(coachLikes.coachId, coachId)))
+      .limit(1);
+    return !!result;
+  }
+
+  async getCoachLikeCount(coachId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(coachLikes)
+      .where(eq(coachLikes.coachId, coachId));
+    return result[0]?.count || 0;
   }
 
   // Programs
@@ -196,7 +244,7 @@ export class DbStorage implements IStorage {
       .innerJoin(users, eq(programs.coachId, users.id))
       .where(eq(programs.isPublic, true))
       .orderBy(desc(programs.createdAt));
-    
+
     return result;
   }
 
@@ -206,7 +254,7 @@ export class DbStorage implements IStorage {
       .from(programs)
       .where(eq(programs.id, id))
       .limit(1);
-    
+
     return result;
   }
 
@@ -230,7 +278,7 @@ export class DbStorage implements IStorage {
       .from(userPrograms)
       .innerJoin(programs, eq(userPrograms.programId, programs.id))
       .where(eq(userPrograms.userId, userId));
-    
+
     return result;
   }
 
@@ -240,7 +288,7 @@ export class DbStorage implements IStorage {
   }
 
   // Posts
-  async getPosts(limit = 20, offset = 0): Promise<any[]> {
+  async getPosts(limit = 20, offset = 0, currentUserId?: string): Promise<any[]> {
     const result = await db
       .select({
         id: posts.id,
@@ -261,7 +309,18 @@ export class DbStorage implements IStorage {
       .orderBy(desc(posts.createdAt))
       .limit(limit)
       .offset(offset);
-    
+
+    // Add isLiked for each post if user is logged in
+    if (currentUserId) {
+      const postsWithLikes = await Promise.all(
+        result.map(async (post) => ({
+          ...post,
+          isLiked: await this.isPostLiked(currentUserId, post.id),
+        }))
+      );
+      return postsWithLikes;
+    }
+
     return result;
   }
 
@@ -285,7 +344,7 @@ export class DbStorage implements IStorage {
       .innerJoin(users, eq(posts.userId, users.id))
       .where(eq(posts.id, id))
       .limit(1);
-    
+
     return result;
   }
 
@@ -310,6 +369,50 @@ export class DbStorage implements IStorage {
     await db.update(posts)
       .set({ likeCount: sql`GREATEST(${posts.likeCount} - 1, 0)` })
       .where(eq(posts.id, postId));
+  }
+
+  async isPostLiked(userId: string, postId: string): Promise<boolean> {
+    const [result] = await db
+      .select()
+      .from(likes)
+      .where(and(eq(likes.userId, userId), eq(likes.postId, postId)))
+      .limit(1);
+    return !!result;
+  }
+
+  // Comments
+  async getComments(postId: string): Promise<any[]> {
+    const result = await db
+      .select({
+        id: comments.id,
+        postId: comments.postId,
+        userId: comments.userId,
+        content: comments.content,
+        createdAt: comments.createdAt,
+        user: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(comments)
+      .innerJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.postId, postId))
+      .orderBy(desc(comments.createdAt));
+    return result;
+  }
+
+  async createComment(userId: string, postId: string, content: string): Promise<any> {
+    const [result] = await db
+      .insert(comments)
+      .values({ userId, postId, content })
+      .returning();
+
+    await db.update(posts)
+      .set({ commentCount: sql`${posts.commentCount} + 1` })
+      .where(eq(posts.id, postId));
+
+    return result;
   }
 
   // Supplements
@@ -343,7 +446,7 @@ export class DbStorage implements IStorage {
       .from(cartItems)
       .innerJoin(supplements, eq(cartItems.supplementId, supplements.id))
       .where(eq(cartItems.userId, userId));
-    
+
     return result;
   }
 
@@ -391,7 +494,7 @@ export class DbStorage implements IStorage {
       .from(challengeParticipants)
       .innerJoin(challenges, eq(challengeParticipants.challengeId, challenges.id))
       .where(eq(challengeParticipants.userId, userId));
-    
+
     return result;
   }
 
@@ -418,7 +521,7 @@ export class DbStorage implements IStorage {
         )
       )
       .limit(1);
-    
+
     return result;
   }
 
@@ -440,7 +543,7 @@ export class DbStorage implements IStorage {
       .where(eq(leagueMembers.leagueId, leagueId))
       .orderBy(desc(leagueMembers.score))
       .limit(100);
-    
+
     return result;
   }
 
@@ -457,7 +560,7 @@ export class DbStorage implements IStorage {
         )
       )
       .limit(1);
-    
+
     if (!league) return undefined;
 
     const [member] = await db
@@ -465,7 +568,7 @@ export class DbStorage implements IStorage {
       .from(leagueMembers)
       .where(and(eq(leagueMembers.leagueId, league.id), eq(leagueMembers.userId, userId)))
       .limit(1);
-    
+
     return member;
   }
 
@@ -481,7 +584,7 @@ export class DbStorage implements IStorage {
         )
       )
       .orderBy(desc(conversations.lastMessageAt));
-    
+
     const enriched = await Promise.all(result.map(async (conv) => {
       const otherId = conv.participant1Id === userId ? conv.participant2Id : conv.participant1Id;
       const [other] = await db.select().from(users).where(eq(users.id, otherId)).limit(1);
@@ -490,7 +593,7 @@ export class DbStorage implements IStorage {
         participant: other ? { id: other.id, fullName: other.fullName, avatar: other.avatar } : null,
       };
     }));
-    
+
     return enriched;
   }
 
@@ -500,7 +603,7 @@ export class DbStorage implements IStorage {
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(messages.createdAt);
-    
+
     return result;
   }
 
@@ -538,7 +641,7 @@ export class DbStorage implements IStorage {
       .from(questions)
       .innerJoin(users, eq(questions.userId, users.id))
       .orderBy(desc(questions.createdAt));
-    
+
     return result;
   }
 
@@ -563,13 +666,141 @@ export class DbStorage implements IStorage {
       .innerJoin(users, eq(questions.userId, users.id))
       .where(eq(questions.id, id))
       .limit(1);
-    
+
     return result;
   }
 
   async createQuestion(question: InsertQuestion): Promise<Question> {
     const [result] = await db.insert(questions).values(question).returning();
     return result;
+  }
+
+  // Answers
+  async getAnswers(questionId: string, currentUserId?: string): Promise<any[]> {
+    const result = await db
+      .select({
+        id: answers.id,
+        questionId: answers.questionId,
+        userId: answers.userId,
+        content: answers.content,
+        isBestAnswer: answers.isBestAnswer,
+        voteCount: answers.voteCount,
+        createdAt: answers.createdAt,
+        user: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(answers)
+      .innerJoin(users, eq(answers.userId, users.id))
+      .where(eq(answers.questionId, questionId))
+      .orderBy(desc(answers.isBestAnswer), desc(answers.voteCount), desc(answers.createdAt));
+
+    // Add userVote for each answer
+    if (currentUserId) {
+      const answersWithVotes = await Promise.all(
+        result.map(async (answer) => {
+          const [vote] = await db
+            .select()
+            .from(answerVotes)
+            .where(and(eq(answerVotes.userId, currentUserId), eq(answerVotes.answerId, answer.id)))
+            .limit(1);
+          return { ...answer, userVote: vote?.value || 0 };
+        })
+      );
+      return answersWithVotes;
+    }
+
+    return result;
+  }
+
+  async getUserQuestionVote(userId: string, questionId: string): Promise<number> {
+    const [vote] = await db
+      .select()
+      .from(questionVotes)
+      .where(and(eq(questionVotes.userId, userId), eq(questionVotes.questionId, questionId)))
+      .limit(1);
+    return vote?.value || 0;
+  }
+
+  async createAnswer(userId: string, questionId: string, content: string): Promise<any> {
+    const [result] = await db
+      .insert(answers)
+      .values({ userId, questionId, content })
+      .returning();
+
+    await db.update(questions)
+      .set({ answerCount: sql`${questions.answerCount} + 1` })
+      .where(eq(questions.id, questionId));
+
+    return result;
+  }
+
+  async voteAnswer(userId: string, answerId: string, value: number): Promise<void> {
+    // Check if user already voted
+    const [existingVote] = await db
+      .select()
+      .from(answerVotes)
+      .where(and(eq(answerVotes.userId, userId), eq(answerVotes.answerId, answerId)))
+      .limit(1);
+
+    if (existingVote) {
+      if (existingVote.value === value) {
+        // Same vote - remove it
+        await db.delete(answerVotes).where(eq(answerVotes.id, existingVote.id));
+        await db.update(answers)
+          .set({ voteCount: sql`${answers.voteCount} - ${value}` })
+          .where(eq(answers.id, answerId));
+      } else {
+        // Different vote - update it
+        await db.update(answerVotes)
+          .set({ value })
+          .where(eq(answerVotes.id, existingVote.id));
+        await db.update(answers)
+          .set({ voteCount: sql`${answers.voteCount} + ${value * 2}` })
+          .where(eq(answers.id, answerId));
+      }
+    } else {
+      // New vote
+      await db.insert(answerVotes).values({ userId, answerId, value });
+      await db.update(answers)
+        .set({ voteCount: sql`${answers.voteCount} + ${value}` })
+        .where(eq(answers.id, answerId));
+    }
+  }
+
+  async voteQuestion(userId: string, questionId: string, value: number): Promise<void> {
+    // Check if user already voted
+    const [existingVote] = await db
+      .select()
+      .from(questionVotes)
+      .where(and(eq(questionVotes.userId, userId), eq(questionVotes.questionId, questionId)))
+      .limit(1);
+
+    if (existingVote) {
+      if (existingVote.value === value) {
+        // Same vote - remove it
+        await db.delete(questionVotes).where(eq(questionVotes.id, existingVote.id));
+        await db.update(questions)
+          .set({ voteCount: sql`${questions.voteCount} - ${value}` })
+          .where(eq(questions.id, questionId));
+      } else {
+        // Different vote - update it
+        await db.update(questionVotes)
+          .set({ value })
+          .where(eq(questionVotes.id, existingVote.id));
+        await db.update(questions)
+          .set({ voteCount: sql`${questions.voteCount} + ${value * 2}` })
+          .where(eq(questions.id, questionId));
+      }
+    } else {
+      // New vote
+      await db.insert(questionVotes).values({ userId, questionId, value });
+      await db.update(questions)
+        .set({ voteCount: sql`${questions.voteCount} + ${value}` })
+        .where(eq(questions.id, questionId));
+    }
   }
 
   // Progress
@@ -579,7 +810,7 @@ export class DbStorage implements IStorage {
       .from(progressPhotos)
       .where(eq(progressPhotos.userId, userId))
       .orderBy(desc(progressPhotos.createdAt));
-    
+
     return result;
   }
 
@@ -599,7 +830,7 @@ export class DbStorage implements IStorage {
       .from(userBadges)
       .innerJoin(badges, eq(userBadges.badgeId, badges.id))
       .where(eq(userBadges.userId, userId));
-    
+
     return result;
   }
 }

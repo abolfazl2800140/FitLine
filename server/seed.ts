@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { 
+import {
   users, coachProfiles, programs, workoutDays, exercises,
   posts, supplements, challenges, leagues, leagueMembers, badges,
   questions, answers
@@ -11,7 +11,7 @@ async function seed() {
 
   // Create sample users
   const hashedPassword = await bcrypt.hash("password123", 10);
-  
+
   const [user1] = await db.insert(users).values({
     email: "ali@example.com",
     username: "ali_coach",
@@ -343,6 +343,67 @@ async function seed() {
       answerCount: 12,
     },
   ]);
+
+  // Get created questions
+  const createdQuestions = await db.select().from(questions);
+
+  // Create answers for questions
+  if (createdQuestions.length > 0) {
+    await db.insert(answers).values([
+      // Answers for first question (protein timing)
+      {
+        questionId: createdQuestions[0].id,
+        userId: coach1.id,
+        content: "بهترین زمان مصرف پروتئین بلافاصله بعد از تمرین هست، چون عضلات در این زمان بیشترین نیاز رو به پروتئین دارن. این بازه زمانی رو \"پنجره آنابولیک\" میگن که حدود ۳۰ دقیقه تا ۲ ساعت بعد از تمرینه.",
+        voteCount: 28,
+        isBestAnswer: true,
+      },
+      {
+        questionId: createdQuestions[0].id,
+        userId: coach2.id,
+        content: "علاوه بر بعد از تمرین، مصرف پروتئین قبل از خواب هم خیلی مفیده. پروتئین کازئین برای شب عالیه چون آهسته جذب میشه.",
+        voteCount: 15,
+        isBestAnswer: false,
+      },
+      {
+        questionId: createdQuestions[0].id,
+        userId: regularUser.id,
+        content: "من شخصاً صبح‌ها هم یه اسکوپ پروتئین میزنم. حس میکنم انرژی بیشتری دارم.",
+        voteCount: 5,
+        isBestAnswer: false,
+      },
+      // Answers for second question (knee injury)
+      {
+        questionId: createdQuestions[1].id,
+        userId: coach1.id,
+        content: "برای محافظت از زانو:\n۱. حتماً گرم کردن قبل از تمرین\n۲. فرم صحیح اسکات (زانو از نوک پا جلوتر نره)\n۳. تقویت عضلات چهارسر و همسترینگ\n۴. استفاده از زانوبند در تمرینات سنگین",
+        voteCount: 42,
+        isBestAnswer: true,
+      },
+      {
+        questionId: createdQuestions[1].id,
+        userId: coach2.id,
+        content: "اگه درد زانو ادامه داره، حتماً به یه فیزیوتراپ مراجعه کن. شاید مشکل از تکنیک نباشه و نیاز به درمان داشته باشی.",
+        voteCount: 18,
+        isBestAnswer: false,
+      },
+      // Answers for third question (keto diet)
+      {
+        questionId: createdQuestions[2].id,
+        userId: coach2.id,
+        content: "رژیم کتو برای کاهش وزن سریع مؤثره ولی چند نکته مهم:\n- اوایل ممکنه سردرد و خستگی داشته باشی (کتو فلو)\n- برای ورزشکاران حرفه‌ای توصیه نمیشه\n- بلندمدت ممکنه مشکلاتی ایجاد کنه\n- حتماً با متخصص تغذیه مشورت کن",
+        voteCount: 35,
+        isBestAnswer: true,
+      },
+      {
+        questionId: createdQuestions[2].id,
+        userId: coach1.id,
+        content: "به نظرم رژیم متعادل با کسری کالری بهتر از کتوئه. پایدارتره و عوارض کمتری داره.",
+        voteCount: 22,
+        isBestAnswer: false,
+      },
+    ]);
+  }
 
   // Create badges
   await db.insert(badges).values([

@@ -1,0 +1,35 @@
+{
+    "name": "Fit Line",
+    "short_name": "Fit Line",
+    "description": "بزرگترین پلتفرم فیتنس ایران - مربیان، برنامه‌های تمرینی و فروشگاه مکمل",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#ffffff",
+    "theme_color": "#22c55e",
+    "dir": "rtl",
+    "lang": "fa",
+    "scope": "/",
+    "icons": [
+        {
+            "src": "/favicon.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/favicon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "fitness",
+        "health",
+        "sports"
+    ],
+    "screenshots": [],
+    "prefer_related_applications": false,
+    "related_applications": []
+}

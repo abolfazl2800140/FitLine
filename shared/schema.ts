@@ -12,7 +12,9 @@ export const orderStatusEnum = pgEnum('order_status', ['pending', 'processing', 
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
+  phone: text("phone").unique(),
+  nationalCode: text("national_code").unique(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   fullName: text("full_name").notNull(),
@@ -115,6 +117,13 @@ export const comments = pgTable("comments", {
 export const likes = pgTable("likes", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   postId: varchar("post_id", { length: 36 }).notNull().references(() => posts.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const coachLikes = pgTable("coach_likes", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id", { length: 36 }).notNull().references(() => coachProfiles.id),
   userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -289,6 +298,22 @@ export const answers = pgTable("answers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const questionVotes = pgTable("question_votes", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  questionId: varchar("question_id", { length: 36 }).notNull().references(() => questions.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  value: integer("value").notNull(), // 1 or -1
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const answerVotes = pgTable("answer_votes", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  answerId: varchar("answer_id", { length: 36 }).notNull().references(() => answers.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  value: integer("value").notNull(), // 1 or -1
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   coachProfile: one(coachProfiles, { fields: [users.id], references: [coachProfiles.userId] }),
@@ -349,6 +374,11 @@ export const likesRelations = relations(likes, ({ one }) => ({
   user: one(users, { fields: [likes.userId], references: [users.id] }),
 }));
 
+export const coachLikesRelations = relations(coachLikes, ({ one }) => ({
+  coach: one(coachProfiles, { fields: [coachLikes.coachId], references: [coachProfiles.id] }),
+  user: one(users, { fields: [coachLikes.userId], references: [users.id] }),
+}));
+
 export const followsRelations = relations(follows, ({ one }) => ({
   follower: one(users, { fields: [follows.followerId], references: [users.id], relationName: "follower" }),
   following: one(users, { fields: [follows.followingId], references: [users.id], relationName: "following" }),
@@ -402,6 +432,7 @@ export const insertExerciseSchema = createInsertSchema(exercises).omit({ id: tru
 export const insertPostSchema = createInsertSchema(posts).omit({ id: true, createdAt: true, likeCount: true, commentCount: true });
 export const insertCommentSchema = createInsertSchema(comments).omit({ id: true, createdAt: true });
 export const insertLikeSchema = createInsertSchema(likes).omit({ id: true, createdAt: true });
+export const insertCoachLikeSchema = createInsertSchema(coachLikes).omit({ id: true, createdAt: true });
 export const insertFollowSchema = createInsertSchema(follows).omit({ id: true, createdAt: true });
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, lastMessageAt: true, lastMessage: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, isRead: true });
@@ -440,6 +471,8 @@ export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Comment = typeof comments.$inferSelect;
 export type InsertLike = z.infer<typeof insertLikeSchema>;
 export type Like = typeof likes.$inferSelect;
+export type InsertCoachLike = z.infer<typeof insertCoachLikeSchema>;
+export type CoachLike = typeof coachLikes.$inferSelect;
 export type InsertFollow = z.infer<typeof insertFollowSchema>;
 export type Follow = typeof follows.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
