@@ -17,6 +17,9 @@ import {
   Settings,
   LogOut,
   Flame,
+  PenSquare,
+  Wallet,
+  BarChart3,
 } from "lucide-react";
 import { translations } from "@/lib/persian";
 import { cn } from "@/lib/utils";
@@ -43,10 +46,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-const mainNavItems = [
+// Nav items for regular users (athletes)
+const userMainNavItems = [
   { path: "/", icon: Home, label: translations.nav.home },
   { path: "/coaches", icon: Users, label: translations.nav.coaches },
   { path: "/education", icon: MessagesSquare, label: "انجمن" },
@@ -54,10 +58,23 @@ const mainNavItems = [
   { path: "/store", icon: ShoppingBag, label: translations.nav.store },
 ];
 
-const secondaryNavItems = [
+const userSecondaryNavItems = [
   { path: "/leagues", icon: Trophy, label: translations.nav.leagues },
   { path: "/challenges", icon: Zap, label: translations.nav.challenges },
   { path: "/feed", icon: Newspaper, label: translations.nav.feed },
+];
+
+// Nav items for coaches
+const coachMainNavItems = [
+  { path: "/", icon: Home, label: "داشبورد" },
+  { path: "/coach/students", icon: Users, label: "شاگردها" },
+  { path: "/coach/program-builder", icon: PenSquare, label: "برنامه‌ساز" },
+  { path: "/messages", icon: MessageCircle, label: "پیام‌ها" },
+];
+
+const coachSecondaryNavItems = [
+  { path: "/education", icon: MessagesSquare, label: "انجمن" },
+  { path: "/feed", icon: Newspaper, label: "فید" },
 ];
 
 interface TopNavProps {
@@ -66,6 +83,7 @@ interface TopNavProps {
     fullName: string;
     avatar?: string | null;
     unreadMessages?: number;
+    role?: string;
   } | null;
 }
 
@@ -75,6 +93,11 @@ export function TopNav({ user }: TopNavProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const queryClient = useQueryClient();
+
+  // Select nav items based on user role
+  const isCoach = user?.role === "coach";
+  const mainNavItems = isCoach ? coachMainNavItems : userMainNavItems;
+  const secondaryNavItems = isCoach ? coachSecondaryNavItems : userSecondaryNavItems;
 
   const logoutMutation = useMutation({
     mutationFn: async () => {

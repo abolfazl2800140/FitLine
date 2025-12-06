@@ -4,10 +4,12 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { z } from "zod";
 import { insertUserSchema, insertPostSchema, insertQuestionSchema, insertMessageSchema } from "@shared/schema";
+import { pool } from "./db";
 
 declare global {
   namespace Express {
@@ -33,14 +35,24 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Session setup
+  // PostgreSQL session store
+  const PgSession = connectPgSimple(session);
+
+  // Session setup with PostgreSQL store
   app.use(session({
+    store: new PgSession({
+      pool: pool,
+      tableName: 'user_sessions',
+      createTableIfMissing: true,
+    }),
     secret: process.env.SESSION_SECRET || 'fitline-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      httpOnly: true,
+      sameSite: 'lax',
     }
   }));
 

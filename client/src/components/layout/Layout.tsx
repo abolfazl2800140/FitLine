@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import type { User } from "@shared/schema";
 import AuthPage from "@/pages/auth";
+import { getQueryFn } from "@/lib/queryClient";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,8 +13,11 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
-  const { data: currentUser, isLoading } = useQuery<User & { unreadMessages?: number }>({
+  const { data: currentUser, isLoading } = useQuery<User & { unreadMessages?: number } | null>({
     queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: false,
   });
 
   // Show loading while checking auth

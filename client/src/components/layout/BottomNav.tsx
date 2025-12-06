@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, MessagesSquare, Dumbbell, User, PenSquare, MessageCircle } from "lucide-react";
+import { Home, Users, MessagesSquare, Dumbbell, User, PenSquare, MessageCircle, ShoppingBag, Wallet } from "lucide-react";
 import { translations } from "@/lib/persian";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -10,13 +10,13 @@ const userNavItems = [
   { path: "/", icon: Home, label: translations.nav.home },
   { path: "/coaches", icon: Users, label: translations.nav.coaches },
   { path: "/education", icon: MessagesSquare, label: "انجمن" },
-  { path: "/programs", icon: Dumbbell, label: translations.nav.programs },
+  { path: "/store", icon: ShoppingBag, label: "فروشگاه" },
   { path: "/profile", icon: User, label: translations.nav.profile },
 ];
 
 // Nav items for coaches
 const coachNavItems = [
-  { path: "/", icon: Home, label: "خانه" },
+  { path: "/", icon: Home, label: "داشبورد" },
   { path: "/coach/students", icon: Users, label: "شاگردها" },
   { path: "/coach/program-builder", icon: PenSquare, label: "برنامه‌ساز" },
   { path: "/messages", icon: MessageCircle, label: "پیام‌ها" },
