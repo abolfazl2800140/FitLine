@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
     Search,
     Clock,
@@ -16,8 +16,11 @@ import {
     PenSquare,
     MoreVertical,
     Filter,
+    Users,
+    ArrowRight,
+    Apple,
 } from "lucide-react";
-import { toPersianNumber } from "@/lib/persian";
+import { toPersianNumber, formatDate, formatRelativeTime } from "@/lib/persian";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -27,69 +30,54 @@ import {
 
 interface Student {
     id: string;
-    name: string;
+    fullName: string;
     avatar: string | null;
-    goal: string;
+    programTitle: string | null;
+    nutritionPlanTitle: string | null;
+    hasWorkoutProgram: boolean;
+    hasNutritionPlan: boolean;
     startDate: string;
-    progress: number;
-    lastActivity: string;
-    status: "active" | "waiting" | "expired";
-    currentProgram?: string;
+    progress: string;
+    status?: "active" | "waiting" | "expired";
 }
 
 export default function CoachStudentsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
+    const [, setLocation] = useLocation();
 
-    // Mock data - replace with actual API
-    const mockStudents: Student[] = [
-        {
-            id: "1",
-            name: "علی احمدی",
-            avatar: null,
-            goal: "کاهش وزن",
-            startDate: "۱۴۰۳/۰۸/۱۵",
-            progress: 65,
-            lastActivity: "۲ ساعت پیش",
-            status: "active",
-            currentProgram: "برنامه کاهش وزن ۸ هفته‌ای",
-        },
-        {
-            id: "2",
-            name: "سارا محمدی",
-            avatar: null,
-            goal: "افزایش حجم",
-            startDate: "۱۴۰۳/۰۹/۰۱",
-            progress: 30,
-            lastActivity: "۵ ساعت پیش",
-            status: "waiting",
-        },
-        {
-            id: "3",
-            name: "رضا کریمی",
-            avatar: null,
-            goal: "تناسب اندام",
-            startDate: "۱۴۰۳/۰۷/۲۰",
-            progress: 85,
-            lastActivity: "دیروز",
-            status: "active",
-            currentProgram: "برنامه فیتنس عمومی",
-        },
-        {
-            id: "4",
-            name: "مریم حسینی",
-            avatar: null,
-            goal: "افزایش قدرت",
-            startDate: "۱۴۰۳/۰۶/۱۰",
-            progress: 100,
-            lastActivity: "۳ روز پیش",
-            status: "expired",
-            currentProgram: "برنامه قدرتی",
-        },
-    ];
+    const { data: user } = useQuery<any>({
+        queryKey: ["/api/auth/me"],
+    });
 
-    const filteredStudents = mockStudents.filter((student) => {
-        const matchesSearch = student.name.includes(searchQuery);
+    // Fetch real students from API
+    const { data: studentsData, isLoading } = useQuery<Student[]>({
+        queryKey: ["/api/coach/students"],
+        enabled: !!user && user.role === "coach",
+    });
+
+    // Transform students data
+    const students = (studentsData || []).map((student: any) => {
+        const progress = parseFloat(student.progress || "0");
+        const hasProgram = student.hasWorkoutProgram || student.hasNutritionPlan;
+
+        let status: "active" | "waiting" | "expired" = "waiting";
+        if (!hasProgram) {
+            status = "waiting"; // هنوز برنامه‌ای ندارد
+        } else if (progress >= 100) {
+            status = "expired";
+        } else {
+            status = "active";
+        }
+        return {
+            ...student,
+            progress,
+            status,
+        };
+    });
+
+    const filteredStudents = students.filter((student) => {
+        const matchesSearch = student.fullName?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesTab =
             activeTab === "all" ||
             (activeTab === "active" && student.status === "active") ||
@@ -112,9 +100,19 @@ export default function CoachStudentsPage() {
     return (
         <div className="min-h-screen bg-background pb-24">
             {/* Header */}
-            <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b">
+            <div className="sticky top-0 z-40 bg-primary backdrop-blur-sm">
                 <div className="px-4 py-3">
-                    <h1 className="text-lg font-bold mb-3">شاگردهای من</h1>
+                    <div className="flex items-center gap-3 mb-3">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setLocation("/coach")}
+                            className="rounded-full text-primary-foreground hover:bg-white/20"
+                        >
+                            <ArrowRight className="h-5 w-5" />
+                        </Button>
+                        <h1 className="text-lg font-semibold text-primary-foreground">شاگردان من</h1>
+                    </div>
 
                     {/* Search */}
                     <div className="relative">
@@ -132,16 +130,16 @@ export default function CoachStudentsPage() {
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="px-4">
                     <TabsList className="w-full grid grid-cols-4 h-10">
                         <TabsTrigger value="all" className="text-xs">
-                            همه ({toPersianNumber(mockStudents.length)})
+                            همه ({toPersianNumber(students.length)})
                         </TabsTrigger>
                         <TabsTrigger value="active" className="text-xs">
-                            فعال ({toPersianNumber(mockStudents.filter(s => s.status === "active").length)})
+                            فعال ({toPersianNumber(students.filter(s => s.status === "active").length)})
                         </TabsTrigger>
                         <TabsTrigger value="waiting" className="text-xs">
-                            منتظر ({toPersianNumber(mockStudents.filter(s => s.status === "waiting").length)})
+                            منتظر ({toPersianNumber(students.filter(s => s.status === "waiting").length)})
                         </TabsTrigger>
                         <TabsTrigger value="expired" className="text-xs">
-                            پایان ({toPersianNumber(mockStudents.filter(s => s.status === "expired").length)})
+                            پایان ({toPersianNumber(students.filter(s => s.status === "expired").length)})
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
@@ -149,10 +147,34 @@ export default function CoachStudentsPage() {
 
             {/* Students List */}
             <div className="px-4 py-4 space-y-3">
-                {filteredStudents.length === 0 ? (
-                    <div className="text-center py-12">
-                        <p className="text-muted-foreground">شاگردی یافت نشد</p>
+                {isLoading ? (
+                    <div className="space-y-3">
+                        {[1, 2, 3].map((i) => (
+                            <Card key={i} className="animate-pulse">
+                                <CardContent className="p-4">
+                                    <div className="flex gap-3">
+                                        <div className="h-12 w-12 rounded-full bg-muted" />
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-4 w-24 bg-muted rounded" />
+                                            <div className="h-3 w-full bg-muted rounded" />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
                     </div>
+                ) : filteredStudents.length === 0 ? (
+                    <Card className="text-center py-12">
+                        <CardContent>
+                            <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold mb-2">شاگردی یافت نشد</h3>
+                            <p className="text-muted-foreground">
+                                {students.length === 0
+                                    ? "هنوز شاگردی در برنامه‌های شما ثبت‌نام نکرده"
+                                    : "نتیجه‌ای برای جستجوی شما یافت نشد"}
+                            </p>
+                        </CardContent>
+                    </Card>
                 ) : (
                     filteredStudents.map((student) => (
                         <Card key={student.id} className="overflow-hidden">
@@ -161,30 +183,32 @@ export default function CoachStudentsPage() {
                                     <Avatar className="h-12 w-12">
                                         <AvatarImage src={student.avatar || undefined} />
                                         <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                            {student.name.charAt(0)}
+                                            {student.fullName?.charAt(0)}
                                         </AvatarFallback>
                                     </Avatar>
 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-1">
-                                            <h3 className="font-bold">{student.name}</h3>
+                                            <h3 className="font-bold">{student.fullName}</h3>
                                             {getStatusBadge(student.status)}
                                         </div>
 
-                                        <p className="text-sm text-muted-foreground mb-2">{student.goal}</p>
-
-                                        {student.currentProgram && (
-                                            <p className="text-xs text-primary mb-2">📋 {student.currentProgram}</p>
-                                        )}
+                                        <div className="flex flex-wrap gap-1 mb-2">
+                                            {student.programTitle && (
+                                                <span className="text-xs text-primary">🏋️ {student.programTitle}</span>
+                                            )}
+                                            {student.nutritionPlanTitle && (
+                                                <span className="text-xs text-green-600">🍎 {student.nutritionPlanTitle}</span>
+                                            )}
+                                            {!student.programTitle && !student.nutritionPlanTitle && (
+                                                <span className="text-xs text-muted-foreground">هنوز برنامه‌ای ندارد</span>
+                                            )}
+                                        </div>
 
                                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                             <span className="flex items-center gap-1">
                                                 <Calendar className="h-3 w-3" />
-                                                {student.startDate}
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Clock className="h-3 w-3" />
-                                                {student.lastActivity}
+                                                {formatDate(student.startDate)}
                                             </span>
                                         </div>
 
@@ -193,7 +217,7 @@ export default function CoachStudentsPage() {
                                             <div className="mt-3">
                                                 <div className="flex items-center justify-between text-xs mb-1">
                                                     <span className="text-muted-foreground">پیشرفت</span>
-                                                    <span className="font-medium">{toPersianNumber(student.progress)}%</span>
+                                                    <span className="font-medium">{toPersianNumber(Math.round(student.progress))}%</span>
                                                 </div>
                                                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                                     <div
@@ -213,19 +237,25 @@ export default function CoachStudentsPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem className="gap-2">
+                                            <DropdownMenuItem className="gap-2" onClick={() => setLocation("/messages")}>
                                                 <MessageCircle className="h-4 w-4" />
                                                 ارسال پیام
                                             </DropdownMenuItem>
                                             <Link href={`/coach/program-builder?student=${student.id}`}>
                                                 <DropdownMenuItem className="gap-2">
                                                     <PenSquare className="h-4 w-4" />
-                                                    نوشتن برنامه
+                                                    برنامه تمرینی
                                                 </DropdownMenuItem>
                                             </Link>
-                                            <DropdownMenuItem className="gap-2">
+                                            <Link href={`/coach/nutrition-builder?studentId=${student.id}`}>
+                                                <DropdownMenuItem className="gap-2">
+                                                    <Apple className="h-4 w-4" />
+                                                    برنامه تغذیه
+                                                </DropdownMenuItem>
+                                            </Link>
+                                            <DropdownMenuItem className="gap-2" onClick={() => setLocation(`/user/${student.id}`)}>
                                                 <TrendingUp className="h-4 w-4" />
-                                                مشاهده پیشرفت
+                                                مشاهده پروفایل
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>

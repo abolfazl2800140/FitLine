@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 const userNavItems = [
   { path: "/", icon: Home, label: translations.nav.home },
   { path: "/coaches", icon: Users, label: translations.nav.coaches },
-  { path: "/education", icon: MessagesSquare, label: "انجمن" },
+  { path: "/messages", icon: MessageCircle, label: "پیام‌ها" },
   { path: "/store", icon: ShoppingBag, label: "فروشگاه" },
   { path: "/profile", icon: User, label: translations.nav.profile },
 ];

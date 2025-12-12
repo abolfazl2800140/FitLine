@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, toPersianNumber } from "@/lib/persian";
 import { useToast } from "@/hooks/use-toast";
+import { CoachingRequestModal } from "@/components/coaching-request-modal";
 import {
     ArrowRight,
     Star,
@@ -30,6 +31,7 @@ export default function CoachDetailPage() {
     const params = useParams<{ id: string }>();
     const [, setLocation] = useLocation();
     const [showAvatar, setShowAvatar] = useState(false);
+    const [showRequestModal, setShowRequestModal] = useState(false);
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
@@ -109,25 +111,27 @@ export default function CoachDetailPage() {
     return (
         <div className="min-h-screen bg-background pb-28" dir="rtl">
             {/* Header */}
-            <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
-                <div className="flex items-center justify-between px-4 h-14">
+            <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
+                <div className="flex items-center justify-between px-4 h-14 relative">
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => setLocation("/coaches")}
-                        className="rounded-full"
+                        className="rounded-full text-primary-foreground hover:bg-white/20"
                     >
                         <ArrowRight className="h-5 w-5" />
                     </Button>
 
+                    <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
+
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="rounded-full">
+                        <Button variant="ghost" size="icon" className="rounded-full text-primary-foreground hover:bg-white/20">
                             <Share2 className="h-5 w-5" />
                         </Button>
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="rounded-full"
+                            className="rounded-full text-primary-foreground hover:bg-white/20"
                             onClick={() => likeMutation.mutate()}
                             disabled={likeMutation.isPending}
                         >
@@ -141,6 +145,8 @@ export default function CoachDetailPage() {
                     </div>
                 </div>
             </div>
+            {/* Spacer for fixed header */}
+            <div className="h-14" />
 
             {/* Profile Header */}
             <motion.div
@@ -218,14 +224,14 @@ export default function CoachDetailPage() {
             {/* Tabs */}
             <Tabs defaultValue="about" className="px-5" dir="rtl">
                 <TabsList className="w-full bg-muted/50 p-1 rounded-xl grid grid-cols-3">
-                    <TabsTrigger value="reviews" className="rounded-lg text-sm">
-                        نظرات
+                    <TabsTrigger value="about" className="rounded-lg text-sm">
+                        درباره
                     </TabsTrigger>
                     <TabsTrigger value="programs" className="rounded-lg text-sm">
                         برنامه‌ها
                     </TabsTrigger>
-                    <TabsTrigger value="about" className="rounded-lg text-sm">
-                        درباره
+                    <TabsTrigger value="reviews" className="rounded-lg text-sm">
+                        نظرات
                     </TabsTrigger>
                 </TabsList>
 
@@ -316,15 +322,23 @@ export default function CoachDetailPage() {
                             <Card key={review.id} className="border border-border/50 bg-card">
                                 <CardContent className="p-4">
                                     <div className="flex items-start gap-3">
-                                        <Avatar className="h-11 w-11 flex-shrink-0">
-                                            <AvatarImage src={review.user?.avatar} />
-                                            <AvatarFallback className="bg-muted">
-                                                {review.user?.fullName?.charAt(0)}
-                                            </AvatarFallback>
-                                        </Avatar>
+                                        <div
+                                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                                            onClick={() => review.user?.id && setLocation(`/user/${review.user.id}`)}
+                                        >
+                                            <Avatar className="h-11 w-11 flex-shrink-0">
+                                                <AvatarImage src={review.user?.avatar} />
+                                                <AvatarFallback className="bg-muted">
+                                                    {review.user?.fullName?.charAt(0)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-2">
-                                                <span className="font-semibold text-sm">
+                                                <span
+                                                    className="font-semibold text-sm cursor-pointer hover:text-primary transition-colors"
+                                                    onClick={() => review.user?.id && setLocation(`/user/${review.user.id}`)}
+                                                >
                                                     {review.user?.fullName}
                                                 </span>
                                                 <div className="flex items-center gap-1">
@@ -335,7 +349,7 @@ export default function CoachDetailPage() {
                                                 </div>
                                             </div>
                                             <p className="text-sm text-muted-foreground leading-6">
-                                                {review.comment}
+                                                {review.content}
                                             </p>
                                         </div>
                                     </div>
@@ -366,12 +380,20 @@ export default function CoachDetailPage() {
                             </span>
                         </p>
                     </div>
-                    <Button size="lg" className="gap-2 px-8">
+                    <Button size="lg" className="gap-2 px-8" onClick={() => setShowRequestModal(true)}>
                         <Calendar className="h-5 w-5" />
-                        رزرو جلسه
+                        درخواست برنامه
                     </Button>
                 </div>
             </div>
+
+            {/* Coaching Request Modal */}
+            <CoachingRequestModal
+                open={showRequestModal}
+                onOpenChange={setShowRequestModal}
+                coachId={coach.userId}
+                coachName={coach.user?.fullName || "مربی"}
+            />
 
             {/* Avatar Modal - Telegram Style */}
             {showAvatar && coach.user?.avatar && (

@@ -136,19 +136,22 @@ export default function SettingsPage() {
     return (
         <div className="min-h-screen bg-background" dir="rtl">
             {/* Header */}
-            <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/50">
-                <div className="flex items-center gap-4 px-4 h-14">
+            <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
+                <div className="flex items-center justify-between px-4 h-14 relative">
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => setLocation("/profile")}
-                        className="rounded-xl"
+                        className="rounded-xl text-primary-foreground hover:bg-white/20"
                     >
                         <ArrowRight className="h-5 w-5" />
                     </Button>
-                    <h1 className="font-bold text-lg">تنظیمات</h1>
+                    <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
+                    <div className="w-10" />
                 </div>
             </div>
+            {/* Spacer for fixed header */}
+            <div className="h-14" />
 
             <div className="container max-w-2xl px-4 py-6 space-y-6">
 

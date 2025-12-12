@@ -184,6 +184,26 @@ export default function QuestionDetailPage() {
         },
     });
 
+    const markBestAnswerMutation = useMutation({
+        mutationFn: async (answerId: string) => {
+            return apiRequest("POST", `/api/answers/${answerId}/best`, {});
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/questions", params.id, "answers"] });
+            toast({
+                title: "پاسخ برگزیده شد",
+                description: "این پاسخ به عنوان بهترین پاسخ انتخاب شد و ۱۰ امتیاز به پاسخ‌دهنده داده شد",
+            });
+        },
+        onError: () => {
+            toast({
+                title: "خطا",
+                description: "فقط صاحب سوال می‌تواند پاسخ برگزیده را انتخاب کند",
+                variant: "destructive",
+            });
+        },
+    });
+
     const handleSubmitAnswer = () => {
         if (newAnswer.trim()) {
             submitAnswerMutation.mutate(newAnswer);
@@ -210,19 +230,22 @@ export default function QuestionDetailPage() {
     return (
         <div className="min-h-screen bg-background pb-6" dir="rtl">
             {/* Header */}
-            <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/50">
-                <div className="flex items-center gap-4 px-4 h-14">
+            <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
+                <div className="flex items-center justify-between px-4 h-14 relative">
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => setLocation("/education")}
-                        className="rounded-xl"
+                        className="rounded-xl text-primary-foreground hover:bg-white/20"
                     >
                         <ArrowRight className="h-5 w-5" />
                     </Button>
-                    <h1 className="font-bold text-lg truncate">جزئیات سوال</h1>
+                    <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
+                    <div className="w-10" />
                 </div>
             </div>
+            {/* Spacer for fixed header */}
+            <div className="h-14" />
 
             <div className="container max-w-3xl px-4 py-6">
                 {/* Question */}
@@ -246,7 +269,10 @@ export default function QuestionDetailPage() {
                         </p>
 
                         <div className="flex items-center justify-between pt-4 border-t border-border/50">
-                            <div className="flex items-center gap-3">
+                            <div
+                                className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => question.user?.id && setLocation(`/user/${question.user.id}`)}
+                            >
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src={question.user?.avatar || undefined} />
                                     <AvatarFallback className="text-sm">
@@ -313,7 +339,10 @@ export default function QuestionDetailPage() {
                                             {answer.content}
                                         </p>
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
+                                            <div
+                                                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                                onClick={() => answer.user?.id && setLocation(`/user/${answer.user.id}`)}
+                                            >
                                                 <Avatar className="h-6 w-6">
                                                     <AvatarImage src={answer.user?.avatar || undefined} />
                                                     <AvatarFallback className="text-xs">
@@ -328,13 +357,28 @@ export default function QuestionDetailPage() {
                                                     {formatRelativeTime(answer.createdAt)}
                                                 </span>
                                             </div>
-                                            <VoteButtons
-                                                initialVote={answer.userVote || 0}
-                                                initialCount={answer.voteCount || 0}
-                                                onVote={(value) => voteAnswerMutation.mutate({ answerId: answer.id, value })}
-                                                disabled={!currentUser}
-                                                size="sm"
-                                            />
+                                            <div className="flex items-center gap-2">
+                                                {/* Best Answer Button - only for question owner */}
+                                                {currentUser?.id === question.userId && !answer.isBestAnswer && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-xs gap-1 text-muted-foreground hover:text-primary"
+                                                        onClick={() => markBestAnswerMutation.mutate(answer.id)}
+                                                        disabled={markBestAnswerMutation.isPending}
+                                                    >
+                                                        <Check className="h-3 w-3" />
+                                                        برگزیده
+                                                    </Button>
+                                                )}
+                                                <VoteButtons
+                                                    initialVote={answer.userVote || 0}
+                                                    initialCount={answer.voteCount || 0}
+                                                    onVote={(value) => voteAnswerMutation.mutate({ answerId: answer.id, value })}
+                                                    disabled={!currentUser}
+                                                    size="sm"
+                                                />
+                                            </div>
                                         </div>
                                     </CardContent>
                                 </Card>

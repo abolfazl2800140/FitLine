@@ -1,6 +1,7 @@
 import { TopNav } from "./TopNav";
 import { BottomNav } from "./BottomNav";
 import { SwipeBack } from "./SwipeBack";
+import { PageTransition } from "./PageTransition";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import type { User } from "@shared/schema";
@@ -41,10 +42,14 @@ export function Layout({ children }: LayoutProps) {
       {isHomePage && <TopNav user={currentUser} />}
       <SwipeBack>
         <main className="pb-20 md:pb-0">
-          {children}
+          <PageTransition>
+            {children}
+          </PageTransition>
         </main>
       </SwipeBack>
-      <BottomNav />
+      <div className="bottom-nav-container">
+        <BottomNav />
+      </div>
     </div>
   );
 }

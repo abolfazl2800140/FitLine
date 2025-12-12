@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChevronUp, ChevronDown, MessageSquare } from "lucide-react";
 import { translations, formatRelativeTime, toPersianNumber } from "@/lib/persian";
 import { cn } from "@/lib/utils";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 interface QuestionCardProps {
   id: string;
@@ -49,6 +49,7 @@ export function QuestionCard({
 }: QuestionCardProps) {
   const [localVote, setLocalVote] = useState<1 | -1 | 0>(userVote);
   const [localVoteCount, setLocalVoteCount] = useState(voteCount);
+  const [, setLocation] = useLocation();
 
   const handleVote = (value: 1 | -1) => {
     // Toggle vote: if same vote clicked, remove it
@@ -144,14 +145,21 @@ export function QuestionCard({
                 {content}
               </p>
 
-              <div className="flex items-center gap-2">
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setLocation(`/user/${userId}`);
+                }}
+              >
                 <Avatar className="h-6 w-6">
                   <AvatarImage src={userAvatar || undefined} />
                   <AvatarFallback className="text-xs">
                     {userName.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-xs text-muted-foreground">{userName}</span>
+                <span className="text-xs text-muted-foreground hover:text-primary">{userName}</span>
                 <span className="text-xs text-muted-foreground">•</span>
                 <span className="text-xs text-muted-foreground">
                   {formatRelativeTime(createdAt)}

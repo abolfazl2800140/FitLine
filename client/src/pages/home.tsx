@@ -6,6 +6,7 @@ import { CoachCard, CoachCardSkeleton } from "@/components/ui/coach-card";
 import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
 import { ProgramCard, ProgramCardSkeleton } from "@/components/ui/program-card";
 import { ChallengeCard, ChallengeCardSkeleton } from "@/components/ui/challenge-card";
+import { PointsDisplay } from "@/components/ui/points-display";
 import { translations, toPersianNumber } from "@/lib/persian";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -18,10 +19,9 @@ import {
   Target,
   Users,
   Zap,
-  ArrowLeft,
   Play,
-  Calendar,
-  Clock
+  Star,
+  Apple,
 } from "lucide-react";
 import CoachHomePage from "@/pages/coach/home";
 
@@ -56,28 +56,27 @@ export default function HomePage() {
   if (user) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Welcome Header */}
-        <section className="px-5 pt-4 pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold">{user.fullName || "کاربر"}</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="gap-1 px-3 py-1.5">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <span className="font-bold">۱۲ روز</span>
-              </Badge>
-            </div>
+        {/* Header */}
+        <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
+          <div className="flex items-center justify-between px-5 h-14 relative">
+            <Badge variant="secondary" className="gap-1 px-3 py-1.5 bg-white/20 text-primary-foreground border-0">
+              <Flame className="h-4 w-4 text-orange-300" />
+              <span className="font-bold">۱۲ روز</span>
+            </Badge>
+            <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
+            <div className="w-16" />
           </div>
-        </section>
+        </div>
+        {/* Spacer for fixed header */}
+        <div className="h-14" />
 
         {/* Quick Stats */}
         <section className="px-5 py-4">
           <div className="grid grid-cols-4 gap-3">
             <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
-              <Dumbbell className="h-5 w-5 mx-auto mb-1 text-primary" />
-              <p className="text-lg font-bold">۵</p>
-              <p className="text-[10px] text-muted-foreground">تمرین</p>
+              <Star className="h-5 w-5 mx-auto mb-1 text-primary fill-primary" />
+              <PointsDisplay showIcon={false} size="lg" className="justify-center" />
+              <p className="text-[10px] text-muted-foreground">امتیاز</p>
             </div>
             <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
               <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
@@ -97,31 +96,28 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Today's Workout Card */}
+        {/* My Programs Card */}
         <section className="px-5 py-2">
-          <Card className="overflow-hidden border-0 bg-gradient-to-br from-primary to-primary/80 text-white">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white/70 text-sm mb-1">تمرین امروز</p>
-                  <h3 className="text-lg font-bold mb-2">تمرین بالاتنه - روز ۳</h3>
-                  <div className="flex items-center gap-3 text-sm text-white/80">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      ۴۵ دقیقه
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Flame className="h-4 w-4" />
-                      ۳۵۰ کالری
-                    </span>
-                  </div>
-                </div>
-                <Button size="lg" variant="secondary" className="rounded-full h-14 w-14 p-0 shadow-lg">
-                  <Play className="h-6 w-6 mr-0.5" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/my-programs">
+              <Card className="overflow-hidden border-0 bg-gradient-to-br from-primary to-primary/80 text-white cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardContent className="p-4">
+                  <Dumbbell className="h-8 w-8 mb-2 opacity-80" />
+                  <h3 className="font-bold mb-1">برنامه تمرینی</h3>
+                  <p className="text-xs text-white/70">مشاهده تمرینات</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/nutrition">
+              <Card className="overflow-hidden border-0 bg-gradient-to-br from-green-500 to-emerald-600 text-white cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardContent className="p-4">
+                  <Apple className="h-8 w-8 mb-2 opacity-80" />
+                  <h3 className="font-bold mb-1">برنامه تغذیه</h3>
+                  <p className="text-xs text-white/70">وعده‌های غذایی</p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         </section>
 
         {/* Quick Actions */}

@@ -1,29 +1,40 @@
 import { db } from "./db";
-import { eq, desc, and, or, sql, like, ilike } from "drizzle-orm";
+import { eq, desc, and, or, sql, like, ilike, gte, lte } from "drizzle-orm";
 import {
   users, coachProfiles, programs, workoutDays, exercises, userPrograms, workoutLogs,
   posts, comments, likes, follows, conversations, messages,
   supplements, cartItems, orders, challenges, challengeParticipants,
   leagues, leagueMembers, badges, userBadges, progressPhotos, progressMetrics,
   reviews, supplementReviews, questions, answers, coachLikes,
-  questionVotes, answerVotes,
+  questionVotes, answerVotes, coachingRequests,
+  // Nutrition tables
+  nutritionPlans, meals, mealItems, mealLogs, pushSubscriptions, mealReminders,
   type User, type InsertUser, type CoachProfile, type InsertCoachProfile,
   type Program, type InsertProgram, type Post, type InsertPost,
   type Supplement, type InsertSupplement, type Challenge, type InsertChallenge,
   type Question, type InsertQuestion, type Message, type InsertMessage,
   type Conversation, type InsertConversation, type CartItem, type InsertCartItem,
   type ChallengeParticipant, type InsertChallengeParticipant,
-  type CoachLike,
+  type CoachLike, type CoachingRequest, type InsertCoachingRequest,
+  type NutritionPlan, type Meal, type MealItem, type MealLog, type PushSubscription, type MealReminder,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { awardPoints } from "./points";
 
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByPhone(phone: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserProfile(id: string): Promise<any | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, data: Partial<User>): Promise<User | undefined>;
+  followUser(followerId: string, followingId: string): Promise<void>;
+  unfollowUser(followerId: string, followingId: string): Promise<void>;
+  isFollowing(followerId: string, followingId: string): Promise<boolean>;
+  getFollowCounts(userId: string): Promise<{ followers: number; following: number }>;
+  createProgressPhoto(data: { userId: string; imageUrl: string; weight?: string | null; bodyFat?: string | null; notes?: string | null }): Promise<any>;
 
   // Coaches
   getCoaches(filters?: { specialty?: string; gender?: string }): Promise<any[]>;
@@ -94,6 +105,25 @@ export interface IStorage {
   // Progress
   getProgressPhotos(userId: string): Promise<any[]>;
   getUserBadges(userId: string): Promise<any[]>;
+
+  // Coaching Requests
+  createCoachingRequest(request: InsertCoachingRequest): Promise<CoachingRequest>;
+  getCoachingRequestsForCoach(coachId: string): Promise<any[]>;
+  getCoachingRequestsForUser(userId: string): Promise<any[]>;
+  getCoachingRequest(id: string): Promise<any | undefined>;
+  updateCoachingRequestStatus(id: string, status: 'accepted' | 'rejected', rejectionReason?: string): Promise<CoachingRequest | undefined>;
+  getOrCreateConversation(participant1Id: string, participant2Id: string): Promise<Conversation>;
+
+  // Programs
+  createProgramWithWorkouts(data: {
+    coachId: string;
+    studentId: string;
+    title: string;
+    durationWeeks: number;
+    days: { title: string; exercises: { name: string; sets: number; reps: string; }[] }[];
+  }): Promise<any>;
+  getUserProgramsWithDetails(userId: string): Promise<any[]>;
+  getProgramWithWorkouts(programId: string): Promise<any | undefined>;
 }
 
 export class DbStorage implements IStorage {
@@ -108,9 +138,101 @@ export class DbStorage implements IStorage {
     return user;
   }
 
+  async getUserByPhone(phone: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+    return user;
+  }
+
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1);
     return user;
+  }
+
+  async getUserProfile(id: string): Promise<any | undefined> {
+    const [user] = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        avatar: users.avatar,
+        bio: users.bio,
+        role: users.role,
+        gender: users.gender,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    if (!user) return undefined;
+
+    // Get user's questions
+    const userQuestions = await db
+      .select({
+        id: questions.id,
+        title: questions.title,
+        voteCount: questions.voteCount,
+        answerCount: questions.answerCount,
+      })
+      .from(questions)
+      .where(eq(questions.userId, id))
+      .orderBy(desc(questions.createdAt))
+      .limit(10);
+
+    // Get user's answers
+    const userAnswers = await db
+      .select({
+        id: answers.id,
+        content: answers.content,
+        questionId: answers.questionId,
+        voteCount: answers.voteCount,
+        isBestAnswer: answers.isBestAnswer,
+      })
+      .from(answers)
+      .where(eq(answers.userId, id))
+      .orderBy(desc(answers.createdAt))
+      .limit(10);
+
+    // Get counts
+    const [questionCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(questions)
+      .where(eq(questions.userId, id));
+
+    const [answerCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(answers)
+      .where(eq(answers.userId, id));
+
+    const [postCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(posts)
+      .where(eq(posts.userId, id));
+
+    // Get progress photos
+    const userProgressPhotos = await db
+      .select()
+      .from(progressPhotos)
+      .where(eq(progressPhotos.userId, id))
+      .orderBy(desc(progressPhotos.createdAt));
+
+    // Get progress metrics
+    const userProgressMetrics = await db
+      .select()
+      .from(progressMetrics)
+      .where(eq(progressMetrics.userId, id))
+      .orderBy(progressMetrics.recordedAt);
+
+    return {
+      ...user,
+      questions: userQuestions,
+      answers: userAnswers,
+      questionCount: questionCount?.count || 0,
+      answerCount: answerCount?.count || 0,
+      postCount: postCount?.count || 0,
+      progressPhotos: userProgressPhotos,
+      progressMetrics: userProgressMetrics,
+    };
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -121,6 +243,56 @@ export class DbStorage implements IStorage {
   async updateUser(id: string, data: Partial<User>): Promise<User | undefined> {
     const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
     return user;
+  }
+
+  async followUser(followerId: string, followingId: string): Promise<void> {
+    const existing = await this.isFollowing(followerId, followingId);
+    if (!existing) {
+      await db.insert(follows).values({ followerId, followingId });
+    }
+  }
+
+  async unfollowUser(followerId: string, followingId: string): Promise<void> {
+    await db.delete(follows).where(
+      and(eq(follows.followerId, followerId), eq(follows.followingId, followingId))
+    );
+  }
+
+  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+    const [result] = await db
+      .select()
+      .from(follows)
+      .where(and(eq(follows.followerId, followerId), eq(follows.followingId, followingId)))
+      .limit(1);
+    return !!result;
+  }
+
+  async getFollowCounts(userId: string): Promise<{ followers: number; following: number }> {
+    const [followersResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(follows)
+      .where(eq(follows.followingId, userId));
+
+    const [followingResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(follows)
+      .where(eq(follows.followerId, userId));
+
+    return {
+      followers: followersResult?.count || 0,
+      following: followingResult?.count || 0,
+    };
+  }
+
+  async createProgressPhoto(data: { userId: string; imageUrl: string; weight?: string | null; bodyFat?: string | null; notes?: string | null }): Promise<any> {
+    const [photo] = await db.insert(progressPhotos).values({
+      userId: data.userId,
+      imageUrl: data.imageUrl,
+      weight: data.weight || null,
+      bodyFat: data.bodyFat || null,
+      notes: data.notes || null,
+    }).returning();
+    return photo;
   }
 
   // Coaches
@@ -181,7 +353,36 @@ export class DbStorage implements IStorage {
       .where(eq(coachProfiles.id, id))
       .limit(1);
 
-    return result;
+    if (!result) return undefined;
+
+    // Get coach programs
+    const coachPrograms = await db
+      .select()
+      .from(programs)
+      .where(eq(programs.coachId, result.userId));
+
+    // Get coach reviews
+    const coachReviews = await db
+      .select({
+        id: reviews.id,
+        rating: reviews.rating,
+        content: reviews.content,
+        createdAt: reviews.createdAt,
+        user: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(reviews)
+      .innerJoin(users, eq(reviews.userId, users.id))
+      .where(eq(reviews.coachId, result.userId));
+
+    return {
+      ...result,
+      programs: coachPrograms,
+      reviews: coachReviews,
+    };
   }
 
   async createCoachProfile(profile: InsertCoachProfile): Promise<CoachProfile> {
@@ -503,6 +704,8 @@ export class DbStorage implements IStorage {
     await db.update(challenges)
       .set({ participantCount: sql`${challenges.participantCount} + 1` })
       .where(eq(challenges.id, challengeId));
+    // Award points for joining challenge
+    await awardPoints(userId, 'JOIN_CHALLENGE');
     return result;
   }
 
@@ -672,6 +875,8 @@ export class DbStorage implements IStorage {
 
   async createQuestion(question: InsertQuestion): Promise<Question> {
     const [result] = await db.insert(questions).values(question).returning();
+    // Award points for asking a question
+    await awardPoints(question.userId, 'ASK_QUESTION');
     return result;
   }
 
@@ -734,6 +939,14 @@ export class DbStorage implements IStorage {
       .set({ answerCount: sql`${questions.answerCount} + 1` })
       .where(eq(questions.id, questionId));
 
+    // Award points for answering - check if user is coach
+    const [user] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
+    if (user?.role === 'coach') {
+      await awardPoints(userId, 'COACH_ANSWER_QUESTION');
+    } else {
+      await awardPoints(userId, 'ANSWER_QUESTION');
+    }
+
     return result;
   }
 
@@ -768,6 +981,57 @@ export class DbStorage implements IStorage {
         .set({ voteCount: sql`${answers.voteCount} + ${value}` })
         .where(eq(answers.id, answerId));
     }
+  }
+
+  async markBestAnswer(userId: string, answerId: string): Promise<{ success: boolean; points: number }> {
+    // Get the answer and its question
+    const [answer] = await db
+      .select({
+        id: answers.id,
+        questionId: answers.questionId,
+        userId: answers.userId,
+        isBestAnswer: answers.isBestAnswer,
+      })
+      .from(answers)
+      .where(eq(answers.id, answerId))
+      .limit(1);
+
+    if (!answer) {
+      throw new Error('Answer not found');
+    }
+
+    // Get the question to check ownership
+    const [question] = await db
+      .select({ userId: questions.userId })
+      .from(questions)
+      .where(eq(questions.id, answer.questionId))
+      .limit(1);
+
+    if (!question) {
+      throw new Error('Question not found');
+    }
+
+    // Only question owner can mark best answer
+    if (question.userId !== userId) {
+      throw new Error('Only the question owner can mark best answer');
+    }
+
+    // Remove previous best answer for this question (if any)
+    await db.update(answers)
+      .set({ isBestAnswer: false })
+      .where(eq(answers.questionId, answer.questionId));
+
+    // Mark this answer as best
+    await db.update(answers)
+      .set({ isBestAnswer: true })
+      .where(eq(answers.id, answerId));
+
+    // Award points to the answer author - check if coach
+    const [answerUser] = await db.select({ role: users.role }).from(users).where(eq(users.id, answer.userId)).limit(1);
+    const pointsAwarded = answerUser?.role === 'coach' ? 15 : 10;
+    await awardPoints(answer.userId, answerUser?.role === 'coach' ? 'COACH_BEST_ANSWER' : 'BEST_ANSWER_USER');
+
+    return { success: true, points: pointsAwarded };
   }
 
   async voteQuestion(userId: string, questionId: string, value: number): Promise<void> {
@@ -832,6 +1096,756 @@ export class DbStorage implements IStorage {
       .where(eq(userBadges.userId, userId));
 
     return result;
+  }
+
+  // Coach Stats
+  async getCoachStats(userId: string): Promise<{
+    activeStudents: number;
+    pendingRequests: number;
+    monthlyIncome: number;
+    completionRate: number;
+    rating: string;
+    reviewCount: number;
+  }> {
+    // Get coach profile
+    const [coachProfile] = await db
+      .select()
+      .from(coachProfiles)
+      .where(eq(coachProfiles.userId, userId))
+      .limit(1);
+
+    if (!coachProfile) {
+      return {
+        activeStudents: 0,
+        pendingRequests: 0,
+        monthlyIncome: 0,
+        completionRate: 0,
+        rating: "0.0",
+        reviewCount: 0,
+      };
+    }
+
+    // Count active students (users enrolled in coach's programs)
+    const [activeStudentsResult] = await db
+      .select({ count: sql<number>`count(DISTINCT ${userPrograms.userId})` })
+      .from(userPrograms)
+      .innerJoin(programs, eq(userPrograms.programId, programs.id))
+      .where(eq(programs.coachId, userId));
+
+    // Count pending coaching requests
+    const [pendingRequestsResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(coachingRequests)
+      .where(
+        and(
+          eq(coachingRequests.coachId, userId),
+          eq(coachingRequests.status, 'pending')
+        )
+      );
+
+    // Calculate monthly income from program enrollments this month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const monthlyIncomeResult = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(CAST(${programs.price} AS DECIMAL)), 0)`
+      })
+      .from(userPrograms)
+      .innerJoin(programs, eq(userPrograms.programId, programs.id))
+      .where(
+        and(
+          eq(programs.coachId, userId),
+          sql`${userPrograms.startDate} >= ${startOfMonth}`
+        )
+      );
+
+    // Calculate completion rate
+    const [completionResult] = await db
+      .select({
+        total: sql<number>`count(*)`,
+        completed: sql<number>`count(CASE WHEN ${userPrograms.progress} >= 100 THEN 1 END)`,
+      })
+      .from(userPrograms)
+      .innerJoin(programs, eq(userPrograms.programId, programs.id))
+      .where(eq(programs.coachId, userId));
+
+    const completionRate = completionResult?.total > 0
+      ? Math.round((completionResult.completed / completionResult.total) * 100)
+      : 0;
+
+    return {
+      activeStudents: activeStudentsResult?.count || 0,
+      pendingRequests: pendingRequestsResult?.count || 0,
+      monthlyIncome: monthlyIncomeResult[0]?.total || 0,
+      completionRate,
+      rating: coachProfile.rating || "0.0",
+      reviewCount: coachProfile.reviewCount || 0,
+    };
+  }
+
+  // Get coach's students (from accepted coaching requests + enrolled programs)
+  async getCoachStudents(coachId: string): Promise<any[]> {
+    // Get students from accepted coaching requests
+    const acceptedRequests = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+        avatar: users.avatar,
+        requestType: coachingRequests.type,
+        createdAt: coachingRequests.createdAt,
+      })
+      .from(coachingRequests)
+      .innerJoin(users, eq(coachingRequests.userId, users.id))
+      .where(
+        and(
+          eq(coachingRequests.coachId, coachId),
+          eq(coachingRequests.status, 'accepted')
+        )
+      );
+
+    // Get unique student IDs
+    const studentIds = [...new Set(acceptedRequests.map(r => r.id))];
+
+    if (studentIds.length === 0) {
+      return [];
+    }
+
+    // For each student, get their program and nutrition plan info
+    const studentsWithDetails = await Promise.all(
+      studentIds.map(async (studentId) => {
+        const student = acceptedRequests.find(r => r.id === studentId)!;
+
+        // Get workout program
+        const [workoutProgram] = await db
+          .select({
+            title: programs.title,
+            progress: userPrograms.progress,
+            startDate: userPrograms.startDate,
+          })
+          .from(userPrograms)
+          .innerJoin(programs, eq(userPrograms.programId, programs.id))
+          .where(
+            and(
+              eq(userPrograms.userId, studentId),
+              eq(programs.coachId, coachId)
+            )
+          )
+          .orderBy(desc(userPrograms.startDate))
+          .limit(1);
+
+        // Get nutrition plan
+        const [nutritionPlan] = await db
+          .select({
+            title: nutritionPlans.title,
+            isActive: nutritionPlans.isActive,
+            startDate: nutritionPlans.startDate,
+          })
+          .from(nutritionPlans)
+          .where(
+            and(
+              eq(nutritionPlans.userId, studentId),
+              eq(nutritionPlans.coachId, coachId)
+            )
+          )
+          .orderBy(desc(nutritionPlans.createdAt))
+          .limit(1);
+
+        // Determine status
+        const hasWorkoutProgram = !!workoutProgram;
+        const hasNutritionPlan = !!nutritionPlan;
+        const progress = workoutProgram?.progress || "0";
+
+        return {
+          id: student.id,
+          fullName: student.fullName,
+          avatar: student.avatar,
+          programTitle: workoutProgram?.title || null,
+          nutritionPlanTitle: nutritionPlan?.title || null,
+          hasWorkoutProgram,
+          hasNutritionPlan,
+          progress,
+          startDate: workoutProgram?.startDate || nutritionPlan?.startDate || student.createdAt,
+        };
+      })
+    );
+
+    return studentsWithDetails;
+  }
+
+  // Coaching Requests
+  async createCoachingRequest(request: InsertCoachingRequest): Promise<CoachingRequest> {
+    const [result] = await db.insert(coachingRequests).values(request).returning();
+    return result;
+  }
+
+  async getCoachingRequestsForCoach(coachId: string): Promise<any[]> {
+    const result = await db
+      .select({
+        id: coachingRequests.id,
+        type: coachingRequests.type,
+        goal: coachingRequests.goal,
+        description: coachingRequests.description,
+        status: coachingRequests.status,
+        createdAt: coachingRequests.createdAt,
+        user: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(coachingRequests)
+      .innerJoin(users, eq(coachingRequests.userId, users.id))
+      .where(eq(coachingRequests.coachId, coachId))
+      .orderBy(desc(coachingRequests.createdAt));
+
+    return result;
+  }
+
+  async getCoachingRequestsForUser(userId: string): Promise<any[]> {
+    const result = await db
+      .select({
+        id: coachingRequests.id,
+        type: coachingRequests.type,
+        goal: coachingRequests.goal,
+        description: coachingRequests.description,
+        status: coachingRequests.status,
+        rejectionReason: coachingRequests.rejectionReason,
+        conversationId: coachingRequests.conversationId,
+        createdAt: coachingRequests.createdAt,
+        coach: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(coachingRequests)
+      .innerJoin(users, eq(coachingRequests.coachId, users.id))
+      .where(eq(coachingRequests.userId, userId))
+      .orderBy(desc(coachingRequests.createdAt));
+
+    return result;
+  }
+
+  async getCoachingRequest(id: string): Promise<any | undefined> {
+    const [result] = await db
+      .select()
+      .from(coachingRequests)
+      .where(eq(coachingRequests.id, id))
+      .limit(1);
+
+    return result;
+  }
+
+  async updateCoachingRequestStatus(
+    id: string,
+    status: 'accepted' | 'rejected',
+    rejectionReason?: string
+  ): Promise<CoachingRequest | undefined> {
+    const [result] = await db
+      .update(coachingRequests)
+      .set({
+        status,
+        rejectionReason: rejectionReason || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(coachingRequests.id, id))
+      .returning();
+
+    return result;
+  }
+
+  async getOrCreateConversation(participant1Id: string, participant2Id: string): Promise<Conversation> {
+    // Check if conversation already exists
+    const [existing] = await db
+      .select()
+      .from(conversations)
+      .where(
+        or(
+          and(
+            eq(conversations.participant1Id, participant1Id),
+            eq(conversations.participant2Id, participant2Id)
+          ),
+          and(
+            eq(conversations.participant1Id, participant2Id),
+            eq(conversations.participant2Id, participant1Id)
+          )
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      return existing;
+    }
+
+    // Create new conversation
+    const [newConv] = await db
+      .insert(conversations)
+      .values({
+        participant1Id,
+        participant2Id,
+      })
+      .returning();
+
+    return newConv;
+  }
+
+  // Create program with workouts and assign to student
+  async createProgramWithWorkouts(data: {
+    coachId: string;
+    studentId: string;
+    title: string;
+    durationWeeks: number;
+    days: { title: string; exercises: { name: string; sets: number; reps: string; }[] }[];
+  }): Promise<any> {
+    // Create program
+    const [program] = await db.insert(programs).values({
+      coachId: data.coachId,
+      title: data.title || "برنامه تمرینی",
+      durationWeeks: data.durationWeeks,
+      isPublic: false,
+    }).returning();
+
+    // Create workout days and exercises
+    for (let i = 0; i < data.days.length; i++) {
+      const day = data.days[i];
+      const [workoutDay] = await db.insert(workoutDays).values({
+        programId: program.id,
+        weekNumber: 1,
+        dayNumber: i + 1,
+        title: day.title,
+      }).returning();
+
+      // Create exercises for this day
+      for (let j = 0; j < day.exercises.length; j++) {
+        const exercise = day.exercises[j];
+        await db.insert(exercises).values({
+          workoutDayId: workoutDay.id,
+          name: exercise.name,
+          sets: exercise.sets,
+          reps: exercise.reps,
+          orderIndex: j,
+        });
+      }
+    }
+
+    // Assign program to student
+    const [enrollment] = await db.insert(userPrograms).values({
+      userId: data.studentId,
+      programId: program.id,
+    }).returning();
+
+    return { program, enrollment };
+  }
+
+  // Get user programs with full details
+  async getUserProgramsWithDetails(userId: string): Promise<any[]> {
+    const enrollments = await db
+      .select({
+        id: userPrograms.id,
+        startDate: userPrograms.startDate,
+        progress: userPrograms.progress,
+        completedWorkouts: userPrograms.completedWorkouts,
+        program: {
+          id: programs.id,
+          title: programs.title,
+          durationWeeks: programs.durationWeeks,
+          coachId: programs.coachId,
+        },
+      })
+      .from(userPrograms)
+      .innerJoin(programs, eq(userPrograms.programId, programs.id))
+      .where(eq(userPrograms.userId, userId))
+      .orderBy(desc(userPrograms.startDate));
+
+    // Get coach info and workout days for each program
+    const result = await Promise.all(enrollments.map(async (enrollment) => {
+      const [coach] = await db
+        .select({ id: users.id, fullName: users.fullName, avatar: users.avatar })
+        .from(users)
+        .where(eq(users.id, enrollment.program.coachId))
+        .limit(1);
+
+      const days = await db
+        .select()
+        .from(workoutDays)
+        .where(eq(workoutDays.programId, enrollment.program.id))
+        .orderBy(workoutDays.dayNumber);
+
+      const totalDays = days.length;
+
+      return {
+        ...enrollment,
+        program: {
+          ...enrollment.program,
+          coach,
+          totalDays,
+        },
+      };
+    }));
+
+    return result;
+  }
+
+  // Get program with all workouts and exercises
+  async getProgramWithWorkouts(programId: string): Promise<any | undefined> {
+    const [program] = await db
+      .select()
+      .from(programs)
+      .where(eq(programs.id, programId))
+      .limit(1);
+
+    if (!program) return undefined;
+
+    const [coach] = await db
+      .select({ id: users.id, fullName: users.fullName, avatar: users.avatar })
+      .from(users)
+      .where(eq(users.id, program.coachId))
+      .limit(1);
+
+    const days = await db
+      .select()
+      .from(workoutDays)
+      .where(eq(workoutDays.programId, programId))
+      .orderBy(workoutDays.dayNumber);
+
+    const daysWithExercises = await Promise.all(days.map(async (day) => {
+      const dayExercises = await db
+        .select()
+        .from(exercises)
+        .where(eq(exercises.workoutDayId, day.id))
+        .orderBy(exercises.orderIndex);
+
+      return { ...day, exercises: dayExercises };
+    }));
+
+    return { ...program, coach, days: daysWithExercises };
+  }
+
+  // ==================== NUTRITION PLAN METHODS ====================
+
+  // Save push subscription
+  async savePushSubscription(data: { userId: string; endpoint: string; p256dh: string; auth: string }): Promise<any> {
+    // Check if subscription already exists
+    const [existing] = await db
+      .select()
+      .from(pushSubscriptions)
+      .where(and(
+        eq(pushSubscriptions.userId, data.userId),
+        eq(pushSubscriptions.endpoint, data.endpoint)
+      ))
+      .limit(1);
+
+    if (existing) {
+      // Update existing
+      const [updated] = await db
+        .update(pushSubscriptions)
+        .set({ p256dh: data.p256dh, auth: data.auth })
+        .where(eq(pushSubscriptions.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    // Create new
+    const [subscription] = await db.insert(pushSubscriptions).values(data).returning();
+    return subscription;
+  }
+
+  // Remove push subscription
+  async removePushSubscription(userId: string, endpoint: string): Promise<void> {
+    await db.delete(pushSubscriptions).where(
+      and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint))
+    );
+  }
+
+  // Create nutrition plan with meals
+  async createNutritionPlanWithMeals(data: {
+    coachId: string;
+    userId: string;
+    title: string;
+    description?: string;
+    dailyCalories?: number;
+    dailyProtein?: number;
+    dailyCarbs?: number;
+    dailyFat?: number;
+    startDate: Date;
+    endDate?: Date | null;
+    meals: {
+      mealType: 'breakfast' | 'morning_snack' | 'lunch' | 'afternoon_snack' | 'dinner' | 'evening_snack';
+      title: string;
+      description?: string;
+      scheduledTime: string;
+      calories?: number;
+      protein?: number;
+      carbs?: number;
+      fat?: number;
+      items: {
+        name: string;
+        quantity: string;
+        calories?: number;
+        protein?: number;
+        carbs?: number;
+        fat?: number;
+        notes?: string;
+      }[];
+    }[];
+  }): Promise<any> {
+    // Deactivate previous active plans for this user
+    await db
+      .update(nutritionPlans)
+      .set({ isActive: false })
+      .where(and(eq(nutritionPlans.userId, data.userId), eq(nutritionPlans.isActive, true)));
+
+    // Create the plan
+    const [plan] = await db.insert(nutritionPlans).values({
+      coachId: data.coachId,
+      userId: data.userId,
+      title: data.title,
+      description: data.description,
+      dailyCalories: data.dailyCalories,
+      dailyProtein: data.dailyProtein,
+      dailyCarbs: data.dailyCarbs,
+      dailyFat: data.dailyFat,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      isActive: true,
+    }).returning();
+
+    // Create meals and items
+    for (let i = 0; i < data.meals.length; i++) {
+      const mealData = data.meals[i];
+      const [meal] = await db.insert(meals).values({
+        nutritionPlanId: plan.id,
+        mealType: mealData.mealType,
+        title: mealData.title,
+        description: mealData.description,
+        scheduledTime: mealData.scheduledTime,
+        calories: mealData.calories,
+        protein: mealData.protein,
+        carbs: mealData.carbs,
+        fat: mealData.fat,
+        orderIndex: i,
+      }).returning();
+
+      // Create meal items
+      for (let j = 0; j < mealData.items.length; j++) {
+        const item = mealData.items[j];
+        await db.insert(mealItems).values({
+          mealId: meal.id,
+          name: item.name,
+          quantity: item.quantity,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fat: item.fat,
+          notes: item.notes,
+          orderIndex: j,
+        });
+      }
+
+      // Create default reminder for this meal
+      await db.insert(mealReminders).values({
+        userId: data.userId,
+        mealId: meal.id,
+        reminderTime: mealData.scheduledTime,
+        isEnabled: true,
+      });
+    }
+
+    return plan;
+  }
+
+  // Get active nutrition plan for user
+  async getActiveNutritionPlan(userId: string): Promise<any | null> {
+    const [plan] = await db
+      .select()
+      .from(nutritionPlans)
+      .where(and(eq(nutritionPlans.userId, userId), eq(nutritionPlans.isActive, true)))
+      .limit(1);
+
+    if (!plan) return null;
+
+    return this.getNutritionPlanWithMeals(plan.id);
+  }
+
+  // Get nutrition plan with all meals and items
+  async getNutritionPlanWithMeals(planId: string): Promise<any | null> {
+    const [plan] = await db
+      .select()
+      .from(nutritionPlans)
+      .where(eq(nutritionPlans.id, planId))
+      .limit(1);
+
+    if (!plan) return null;
+
+    // Get coach info
+    const [coach] = await db
+      .select({ id: users.id, fullName: users.fullName, avatar: users.avatar })
+      .from(users)
+      .where(eq(users.id, plan.coachId))
+      .limit(1);
+
+    // Get meals
+    const planMeals = await db
+      .select()
+      .from(meals)
+      .where(eq(meals.nutritionPlanId, planId))
+      .orderBy(meals.orderIndex);
+
+    // Get items for each meal
+    const mealsWithItems = await Promise.all(planMeals.map(async (meal) => {
+      const items = await db
+        .select()
+        .from(mealItems)
+        .where(eq(mealItems.mealId, meal.id))
+        .orderBy(mealItems.orderIndex);
+
+      return { ...meal, items };
+    }));
+
+    return { ...plan, coach, meals: mealsWithItems };
+  }
+
+  // Get all nutrition plans for user
+  async getUserNutritionPlans(userId: string): Promise<any[]> {
+    const plans = await db
+      .select({
+        id: nutritionPlans.id,
+        title: nutritionPlans.title,
+        description: nutritionPlans.description,
+        dailyCalories: nutritionPlans.dailyCalories,
+        startDate: nutritionPlans.startDate,
+        endDate: nutritionPlans.endDate,
+        isActive: nutritionPlans.isActive,
+        createdAt: nutritionPlans.createdAt,
+        coach: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(nutritionPlans)
+      .innerJoin(users, eq(nutritionPlans.coachId, users.id))
+      .where(eq(nutritionPlans.userId, userId))
+      .orderBy(desc(nutritionPlans.createdAt));
+
+    return plans;
+  }
+
+  // Log meal completion
+  async logMealCompletion(data: { userId: string; mealId: string; notes?: string; rating?: number }): Promise<any> {
+    const [log] = await db.insert(mealLogs).values({
+      userId: data.userId,
+      mealId: data.mealId,
+      notes: data.notes,
+      rating: data.rating,
+    }).returning();
+    return log;
+  }
+
+  // Get today's meal logs
+  async getTodayMealLogs(userId: string): Promise<any[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const logs = await db
+      .select({
+        id: mealLogs.id,
+        mealId: mealLogs.mealId,
+        completedAt: mealLogs.completedAt,
+        notes: mealLogs.notes,
+        rating: mealLogs.rating,
+      })
+      .from(mealLogs)
+      .where(
+        and(
+          eq(mealLogs.userId, userId),
+          gte(mealLogs.completedAt, today),
+          lte(mealLogs.completedAt, tomorrow)
+        )
+      );
+
+    return logs;
+  }
+
+  // Set meal reminder
+  async setMealReminder(data: { userId: string; mealId: string; reminderTime: string; isEnabled: boolean }): Promise<any> {
+    // Check if reminder exists
+    const [existing] = await db
+      .select()
+      .from(mealReminders)
+      .where(and(eq(mealReminders.userId, data.userId), eq(mealReminders.mealId, data.mealId)))
+      .limit(1);
+
+    if (existing) {
+      const [updated] = await db
+        .update(mealReminders)
+        .set({ reminderTime: data.reminderTime, isEnabled: data.isEnabled })
+        .where(eq(mealReminders.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [reminder] = await db.insert(mealReminders).values(data).returning();
+    return reminder;
+  }
+
+  // Get user's meal reminders
+  async getUserMealReminders(userId: string): Promise<any[]> {
+    const reminders = await db
+      .select({
+        id: mealReminders.id,
+        mealId: mealReminders.mealId,
+        reminderTime: mealReminders.reminderTime,
+        isEnabled: mealReminders.isEnabled,
+        meal: {
+          id: meals.id,
+          title: meals.title,
+          mealType: meals.mealType,
+          scheduledTime: meals.scheduledTime,
+        },
+      })
+      .from(mealReminders)
+      .innerJoin(meals, eq(mealReminders.mealId, meals.id))
+      .where(eq(mealReminders.userId, userId));
+
+    return reminders;
+  }
+
+  // Toggle meal reminder
+  async toggleMealReminder(reminderId: string, isEnabled: boolean): Promise<any> {
+    const [updated] = await db
+      .update(mealReminders)
+      .set({ isEnabled })
+      .where(eq(mealReminders.id, reminderId))
+      .returning();
+    return updated;
+  }
+
+  // Get nutrition plans created by coach
+  async getCoachNutritionPlans(coachId: string): Promise<any[]> {
+    const plans = await db
+      .select({
+        id: nutritionPlans.id,
+        title: nutritionPlans.title,
+        dailyCalories: nutritionPlans.dailyCalories,
+        startDate: nutritionPlans.startDate,
+        isActive: nutritionPlans.isActive,
+        createdAt: nutritionPlans.createdAt,
+        user: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(nutritionPlans)
+      .innerJoin(users, eq(nutritionPlans.userId, users.id))
+      .where(eq(nutritionPlans.coachId, coachId))
+      .orderBy(desc(nutritionPlans.createdAt));
+
+    return plans;
   }
 }
 

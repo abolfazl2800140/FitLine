@@ -5,6 +5,7 @@ import { Heart, MessageCircle, Share2, MoreHorizontal, Bookmark } from "lucide-r
 import { translations, formatRelativeTime, toPersianNumber } from "@/lib/persian";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,7 @@ export function PostCard({
   const [likes, setLikes] = useState(likeCount);
 
   const [likeAnimating, setLikeAnimating] = useState(false);
+  const [, setLocation] = useLocation();
 
   const handleLike = () => {
     // Optimistic update
@@ -71,14 +73,22 @@ export function PostCard({
       data-testid={`card-post-${id}`}
     >
       <CardHeader className="flex flex-row items-center gap-3 p-5 pb-3">
-        <Avatar className="h-11 w-11 ring-2 ring-primary/10">
-          <AvatarImage src={userAvatar || undefined} alt={userName} className="object-cover" />
-          <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold">
-            {userName.charAt(0)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-sm truncate hover:text-primary transition-colors cursor-pointer">{userName}</h4>
+        <div
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => setLocation(`/user/${userId}`)}
+        >
+          <Avatar className="h-11 w-11 ring-2 ring-primary/10">
+            <AvatarImage src={userAvatar || undefined} alt={userName} className="object-cover" />
+            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold">
+              {userName.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={() => setLocation(`/user/${userId}`)}
+        >
+          <h4 className="font-bold text-sm truncate hover:text-primary transition-colors">{userName}</h4>
           <p className="text-xs text-muted-foreground">
             {formatRelativeTime(createdAt)}
           </p>

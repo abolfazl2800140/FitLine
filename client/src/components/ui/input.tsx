@@ -18,29 +18,26 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={type}
           className={cn(
-            // Base styles - iOS-like
-            "flex h-12 w-full rounded-xl border-2 bg-muted/50 px-4 py-3 text-base",
+            // Base styles - iOS-like (no border, just background)
+            "flex h-12 w-full rounded-xl border-0 bg-muted/60 px-4 py-3 text-base text-right",
             "transition-all duration-200 ease-out",
-            // Ring and focus
-            "ring-offset-background",
-            "focus-visible:outline-none focus-visible:border-primary focus-visible:bg-background",
-            "focus-visible:ring-2 focus-visible:ring-primary/20",
+            // Focus - subtle background change
+            "focus:outline-none focus:bg-muted focus:ring-0",
             // Placeholder
-            "placeholder:text-muted-foreground/60",
+            "placeholder:text-muted-foreground/50 placeholder:text-right",
             // File input
             "file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",
             // Disabled
             "disabled:cursor-not-allowed disabled:opacity-50",
             // Error state
-            error && "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20",
-            // Default border
-            !error && "border-transparent",
+            error && "bg-destructive/10 focus:bg-destructive/10",
             // Icon padding
             icon && "pr-10",
             // Allow text selection
             "select-text",
             className
           )}
+          dir="rtl"
           ref={ref}
           // Prevent zoom on iOS
           style={{ fontSize: '16px' }}

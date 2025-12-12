@@ -23,24 +23,57 @@ export default function CoachHomePage() {
         queryKey: ["/api/auth/me"],
     });
 
-    // Mock data - replace with actual API
-    const stats = {
-        activeStudents: 12,
-        pendingRequests: 3,
-        monthlyIncome: 4500000,
-        completionRate: 87,
+    // Fetch real stats from API
+    const { data: stats } = useQuery<{
+        activeStudents: number;
+        pendingRequests: number;
+        monthlyIncome: number;
+        completionRate: number;
+        rating: string;
+        reviewCount: number;
+    }>({
+        queryKey: ["/api/coach/stats"],
+        enabled: !!user && user.role === "coach",
+    });
+
+    // Fetch real students from API
+    const { data: students } = useQuery<any[]>({
+        queryKey: ["/api/coach/students"],
+        enabled: !!user && user.role === "coach",
+    });
+
+    // Fetch pending requests count
+    const { data: pendingCountData } = useQuery<{ count: number }>({
+        queryKey: ["/api/coach/requests/pending-count"],
+        enabled: !!user && user.role === "coach",
+    });
+
+    // Fetch recent requests
+    const { data: requests } = useQuery<any[]>({
+        queryKey: ["/api/coach/requests"],
+        enabled: !!user && user.role === "coach",
+    });
+
+    // Default values when data is loading
+    const pendingCount = pendingCountData?.count || 0;
+    const coachStats = {
+        activeStudents: stats?.activeStudents || 0,
+        pendingRequests: pendingCount,
+        monthlyIncome: stats?.monthlyIncome || 0,
+        completionRate: stats?.completionRate || 0,
     };
 
-    const recentStudents = [
-        { id: "1", name: "علی احمدی", avatar: null, lastActivity: "۲ ساعت پیش", status: "active" },
-        { id: "2", name: "سارا محمدی", avatar: null, lastActivity: "۵ ساعت پیش", status: "waiting" },
-        { id: "3", name: "رضا کریمی", avatar: null, lastActivity: "دیروز", status: "active" },
-    ];
+    // Transform students data for display
+    const recentStudents = (students || []).slice(0, 5).map((student: any) => ({
+        id: student.id,
+        name: student.fullName,
+        avatar: student.avatar,
+        lastActivity: student.programTitle || "برنامه جدید",
+        status: student.progress >= 50 ? "active" : "waiting",
+    }));
 
-    const pendingRequests = [
-        { id: "1", name: "مهدی حسینی", goal: "کاهش وزن", date: "امروز" },
-        { id: "2", name: "زهرا نوری", goal: "افزایش حجم", date: "دیروز" },
-    ];
+    // Get pending requests for display
+    const pendingRequests = (requests || []).filter((r: any) => r.status === "pending").slice(0, 3);
 
     return (
         <div className="min-h-screen bg-background pb-24">
@@ -53,7 +86,7 @@ export default function CoachHomePage() {
                     </div>
                     <Badge variant="secondary" className="gap-1 px-3 py-1.5">
                         <Star className="h-4 w-4 text-yellow-500" />
-                        <span className="font-bold">۴.۸</span>
+                        <span className="font-bold">{toPersianNumber(parseFloat(stats?.rating || "0").toFixed(1))}</span>
                     </Badge>
                 </div>
             </div>
@@ -64,7 +97,7 @@ export default function CoachHomePage() {
                     <Card className="border-0 bg-gradient-to-br from-primary/10 to-primary/5">
                         <CardContent className="p-4">
                             <Users className="h-5 w-5 text-primary mb-2" />
-                            <p className="text-2xl font-bold">{toPersianNumber(stats.activeStudents)}</p>
+                            <p className="text-2xl font-bold">{toPersianNumber(coachStats.activeStudents)}</p>
                             <p className="text-xs text-muted-foreground">شاگرد فعال</p>
                         </CardContent>
                     </Card>
@@ -72,7 +105,7 @@ export default function CoachHomePage() {
                     <Card className="border-0 bg-gradient-to-br from-orange-500/10 to-orange-500/5">
                         <CardContent className="p-4">
                             <AlertCircle className="h-5 w-5 text-orange-500 mb-2" />
-                            <p className="text-2xl font-bold">{toPersianNumber(stats.pendingRequests)}</p>
+                            <p className="text-2xl font-bold">{toPersianNumber(coachStats.pendingRequests)}</p>
                             <p className="text-xs text-muted-foreground">درخواست جدید</p>
                         </CardContent>
                     </Card>
@@ -80,7 +113,7 @@ export default function CoachHomePage() {
                     <Card className="border-0 bg-gradient-to-br from-green-500/10 to-green-500/5">
                         <CardContent className="p-4">
                             <Wallet className="h-5 w-5 text-green-500 mb-2" />
-                            <p className="text-lg font-bold">{formatPrice(stats.monthlyIncome)}</p>
+                            <p className="text-lg font-bold">{formatPrice(coachStats.monthlyIncome)}</p>
                             <p className="text-xs text-muted-foreground">درآمد این ماه</p>
                         </CardContent>
                     </Card>
@@ -88,7 +121,7 @@ export default function CoachHomePage() {
                     <Card className="border-0 bg-gradient-to-br from-blue-500/10 to-blue-500/5">
                         <CardContent className="p-4">
                             <TrendingUp className="h-5 w-5 text-blue-500 mb-2" />
-                            <p className="text-2xl font-bold">{toPersianNumber(stats.completionRate)}%</p>
+                            <p className="text-2xl font-bold">{toPersianNumber(coachStats.completionRate)}%</p>
                             <p className="text-xs text-muted-foreground">نرخ تکمیل</p>
                         </CardContent>
                     </Card>
@@ -123,31 +156,32 @@ export default function CoachHomePage() {
                             <AlertCircle className="h-4 w-4 text-orange-500" />
                             درخواست‌های جدید
                         </h2>
-                        <Badge variant="secondary">{toPersianNumber(pendingRequests.length)}</Badge>
+                        <Link href="/coach/requests">
+                            <Button variant="ghost" size="sm" className="gap-1 text-primary">
+                                همه ({toPersianNumber(pendingCount)})
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                        </Link>
                     </div>
                     <div className="px-5 space-y-2">
-                        {pendingRequests.map((request) => (
-                            <Card key={request.id} className="border-orange-500/20 bg-orange-500/5">
-                                <CardContent className="p-3 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-10 w-10">
-                                            <AvatarFallback>{request.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-medium">{request.name}</p>
-                                            <p className="text-xs text-muted-foreground">{request.goal}</p>
+                        {pendingRequests.map((request: any) => (
+                            <Link key={request.id} href="/coach/requests">
+                                <Card className="border-orange-500/20 bg-orange-500/5 cursor-pointer hover:bg-orange-500/10 transition-colors">
+                                    <CardContent className="p-3 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={request.user?.avatar} />
+                                                <AvatarFallback>{request.user?.fullName?.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="font-medium">{request.user?.fullName}</p>
+                                                <p className="text-xs text-muted-foreground">{request.goal}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button size="sm" variant="outline" className="h-8">
-                                            رد
-                                        </Button>
-                                        <Button size="sm" className="h-8">
-                                            قبول
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                        <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+                                    </CardContent>
+                                </Card>
+                            </Link>
                         ))}
                     </div>
                 </section>

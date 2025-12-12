@@ -267,41 +267,58 @@ export const translations = {
 };
 
 // Convert English numbers to Persian
-export function toPersianNumber(num: number | string): string {
+export function toPersianNumber(num: number | string | null | undefined): string {
+  if (num === null || num === undefined) return "۰";
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
   return String(num).replace(/[0-9]/g, (d) => persianDigits[parseInt(d)]);
 }
 
 // Format price in Persian
-export function formatPrice(price: number | string): string {
+export function formatPrice(price: number | string | null | undefined): string {
+  if (price === null || price === undefined) return "۰";
   const numPrice = typeof price === "string" ? parseFloat(price) : price;
+  if (isNaN(numPrice)) return "۰";
   return toPersianNumber(numPrice.toLocaleString("fa-IR"));
 }
 
 // Format relative time in Persian
-export function formatRelativeTime(date: Date | string): string {
-  const now = new Date();
-  const past = new Date(date);
-  const diffMs = now.getTime() - past.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+export function formatRelativeTime(date: Date | string | null | undefined): string {
+  if (!date) return "";
+  try {
+    const now = new Date();
+    const past = new Date(date);
+    if (isNaN(past.getTime())) return "";
 
-  if (diffMins < 1) return "همین الان";
-  if (diffMins < 60) return `${toPersianNumber(diffMins)} دقیقه پیش`;
-  if (diffHours < 24) return `${toPersianNumber(diffHours)} ساعت پیش`;
-  if (diffDays < 7) return `${toPersianNumber(diffDays)} روز پیش`;
-  
-  return past.toLocaleDateString("fa-IR");
+    const diffMs = now.getTime() - past.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "همین الان";
+    if (diffMins < 60) return `${toPersianNumber(diffMins)} دقیقه پیش`;
+    if (diffHours < 24) return `${toPersianNumber(diffHours)} ساعت پیش`;
+    if (diffDays < 7) return `${toPersianNumber(diffDays)} روز پیش`;
+
+    return past.toLocaleDateString("fa-IR");
+  } catch {
+    return "";
+  }
 }
 
 // Format date in Persian
-export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString("fa-IR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return "";
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("fa-IR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return "";
+  }
 }
 
 export type TranslationKey = keyof typeof translations;

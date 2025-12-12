@@ -9,6 +9,8 @@ export const difficultyEnum = pgEnum('difficulty', ['beginner', 'intermediate', 
 export const leagueTierEnum = pgEnum('league_tier', ['bronze', 'silver', 'gold', 'platinum', 'diamond']);
 export const challengeTypeEnum = pgEnum('challenge_type', ['weekly', 'monthly']);
 export const orderStatusEnum = pgEnum('order_status', ['pending', 'processing', 'shipped', 'delivered', 'cancelled']);
+export const coachingRequestStatusEnum = pgEnum('coaching_request_status', ['pending', 'accepted', 'rejected']);
+export const coachingRequestTypeEnum = pgEnum('coaching_request_type', ['workout', 'nutrition', 'both', 'consultation']);
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
@@ -25,6 +27,7 @@ export const users = pgTable("users", {
   height: decimal("height", { precision: 5, scale: 2 }),
   weight: decimal("weight", { precision: 5, scale: 2 }),
   bodyFat: decimal("body_fat", { precision: 4, scale: 1 }),
+  points: integer("points").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -314,6 +317,20 @@ export const answerVotes = pgTable("answer_votes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const coachingRequests = pgTable("coaching_requests", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  coachId: varchar("coach_id", { length: 36 }).notNull().references(() => users.id),
+  type: coachingRequestTypeEnum("type").notNull(),
+  goal: text("goal").notNull(),
+  description: text("description"),
+  status: coachingRequestStatusEnum("status").default('pending').notNull(),
+  rejectionReason: text("rejection_reason"),
+  conversationId: varchar("conversation_id", { length: 36 }).references(() => conversations.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   coachProfile: one(coachProfiles, { fields: [users.id], references: [coachProfiles.userId] }),
@@ -418,6 +435,125 @@ export const answersRelations = relations(answers, ({ one }) => ({
   user: one(users, { fields: [answers.userId], references: [users.id] }),
 }));
 
+export const coachingRequestsRelations = relations(coachingRequests, ({ one }) => ({
+  user: one(users, { fields: [coachingRequests.userId], references: [users.id], relationName: "requester" }),
+  coach: one(users, { fields: [coachingRequests.coachId], references: [users.id], relationName: "requestedCoach" }),
+  conversation: one(conversations, { fields: [coachingRequests.conversationId], references: [conversations.id] }),
+}));
+
+// ==================== NUTRITION PLAN SYSTEM ====================
+
+export const mealTypeEnum = pgEnum('meal_type', ['breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner', 'evening_snack']);
+
+// برنامه تغذیه اصلی
+export const nutritionPlans = pgTable("nutrition_plans", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id", { length: 36 }).notNull().references(() => users.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  dailyCalories: integer("daily_calories"),
+  dailyProtein: integer("daily_protein"),
+  dailyCarbs: integer("daily_carbs"),
+  dailyFat: integer("daily_fat"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// وعده‌های غذایی
+export const meals = pgTable("meals", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  nutritionPlanId: varchar("nutrition_plan_id", { length: 36 }).notNull().references(() => nutritionPlans.id),
+  mealType: mealTypeEnum("meal_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  scheduledTime: text("scheduled_time").notNull(), // مثلا "08:00"
+  calories: integer("calories"),
+  protein: integer("protein"),
+  carbs: integer("carbs"),
+  fat: integer("fat"),
+  orderIndex: integer("order_index").default(0),
+});
+
+// آیتم‌های غذایی هر وعده
+export const mealItems = pgTable("meal_items", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  mealId: varchar("meal_id", { length: 36 }).notNull().references(() => meals.id),
+  name: text("name").notNull(),
+  quantity: text("quantity").notNull(), // مثلا "2 عدد" یا "100 گرم"
+  calories: integer("calories"),
+  protein: integer("protein"),
+  carbs: integer("carbs"),
+  fat: integer("fat"),
+  notes: text("notes"),
+  orderIndex: integer("order_index").default(0),
+});
+
+// لاگ مصرف غذا توسط کاربر
+export const mealLogs = pgTable("meal_logs", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  mealId: varchar("meal_id", { length: 36 }).notNull().references(() => meals.id),
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+  notes: text("notes"),
+  rating: integer("rating"), // 1-5 امتیاز کاربر به وعده
+});
+
+// تنظیمات نوتیفیکیشن کاربر
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// یادآورهای نوتیفیکیشن
+export const mealReminders = pgTable("meal_reminders", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  mealId: varchar("meal_id", { length: 36 }).notNull().references(() => meals.id),
+  reminderTime: text("reminder_time").notNull(), // زمان یادآوری
+  isEnabled: boolean("is_enabled").default(true),
+  lastSentAt: timestamp("last_sent_at"),
+});
+
+// Relations for nutrition
+export const nutritionPlansRelations = relations(nutritionPlans, ({ one, many }) => ({
+  coach: one(users, { fields: [nutritionPlans.coachId], references: [users.id], relationName: "nutritionCoach" }),
+  user: one(users, { fields: [nutritionPlans.userId], references: [users.id], relationName: "nutritionUser" }),
+  meals: many(meals),
+}));
+
+export const mealsRelations = relations(meals, ({ one, many }) => ({
+  nutritionPlan: one(nutritionPlans, { fields: [meals.nutritionPlanId], references: [nutritionPlans.id] }),
+  items: many(mealItems),
+  logs: many(mealLogs),
+  reminders: many(mealReminders),
+}));
+
+export const mealItemsRelations = relations(mealItems, ({ one }) => ({
+  meal: one(meals, { fields: [mealItems.mealId], references: [meals.id] }),
+}));
+
+export const mealLogsRelations = relations(mealLogs, ({ one }) => ({
+  user: one(users, { fields: [mealLogs.userId], references: [users.id] }),
+  meal: one(meals, { fields: [mealLogs.mealId], references: [meals.id] }),
+}));
+
+export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
+  user: one(users, { fields: [pushSubscriptions.userId], references: [users.id] }),
+}));
+
+export const mealRemindersRelations = relations(mealReminders, ({ one }) => ({
+  user: one(users, { fields: [mealReminders.userId], references: [users.id] }),
+  meal: one(meals, { fields: [mealReminders.mealId], references: [meals.id] }),
+}));
+
 export const reviewsRelations = relations(reviews, ({ one }) => ({
   coach: one(users, { fields: [reviews.coachId], references: [users.id], relationName: "coach" }),
   reviewer: one(users, { fields: [reviews.userId], references: [users.id], relationName: "reviewer" }),
@@ -453,6 +589,15 @@ export const insertQuestionSchema = createInsertSchema(questions).omit({ id: tru
 export const insertAnswerSchema = createInsertSchema(answers).omit({ id: true, createdAt: true, isBestAnswer: true, voteCount: true });
 export const insertUserProgramSchema = createInsertSchema(userPrograms).omit({ id: true, startDate: true, progress: true, completedWorkouts: true });
 export const insertWorkoutLogSchema = createInsertSchema(workoutLogs).omit({ id: true, completedAt: true });
+export const insertCoachingRequestSchema = createInsertSchema(coachingRequests).omit({ id: true, createdAt: true, updatedAt: true, status: true, rejectionReason: true, conversationId: true });
+
+// Nutrition Plan schemas
+export const insertNutritionPlanSchema = createInsertSchema(nutritionPlans).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMealSchema = createInsertSchema(meals).omit({ id: true });
+export const insertMealItemSchema = createInsertSchema(mealItems).omit({ id: true });
+export const insertMealLogSchema = createInsertSchema(mealLogs).omit({ id: true, completedAt: true });
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
+export const insertMealReminderSchema = createInsertSchema(mealReminders).omit({ id: true, lastSentAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -513,3 +658,19 @@ export type InsertUserProgram = z.infer<typeof insertUserProgramSchema>;
 export type UserProgram = typeof userPrograms.$inferSelect;
 export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
 export type WorkoutLog = typeof workoutLogs.$inferSelect;
+export type InsertCoachingRequest = z.infer<typeof insertCoachingRequestSchema>;
+export type CoachingRequest = typeof coachingRequests.$inferSelect;
+
+// Nutrition Plan types
+export type InsertNutritionPlan = z.infer<typeof insertNutritionPlanSchema>;
+export type NutritionPlan = typeof nutritionPlans.$inferSelect;
+export type InsertMeal = z.infer<typeof insertMealSchema>;
+export type Meal = typeof meals.$inferSelect;
+export type InsertMealItem = z.infer<typeof insertMealItemSchema>;
+export type MealItem = typeof mealItems.$inferSelect;
+export type InsertMealLog = z.infer<typeof insertMealLogSchema>;
+export type MealLog = typeof mealLogs.$inferSelect;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertMealReminder = z.infer<typeof insertMealReminderSchema>;
+export type MealReminder = typeof mealReminders.$inferSelect;

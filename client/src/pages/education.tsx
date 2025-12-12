@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,10 +10,10 @@ import { QuestionCard, QuestionCardSkeleton } from "@/components/ui/question-car
 import { translations } from "@/lib/persian";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Search, 
-  Plus, 
-  HelpCircle, 
+import {
+  Search,
+  Plus,
+  HelpCircle,
   MessageSquare,
   Loader2
 } from "lucide-react";
@@ -42,6 +43,7 @@ const categories = [
 ];
 
 export default function EducationPage() {
+  const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -96,21 +98,29 @@ export default function EducationPage() {
   }) || [];
 
   return (
-    <div className="container px-4 md:px-6 py-6">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">{translations.education.title}</h1>
-          <p className="text-muted-foreground">
-            سوالات خود را بپرسید و از تجربه دیگران یاد بگیرید
-          </p>
+    <div>
+      {/* Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
+        <div className="container px-4 md:px-6 py-4 flex items-center justify-between relative">
+          <Button
+            size="icon"
+            className="bg-white text-primary hover:bg-white/90"
+            data-testid="button-ask-question"
+            onClick={() => setLocation("/education/ask")}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <span className="text-xl italic font-bold text-primary-foreground absolute left-1/2 -translate-x-1/2">FitLine</span>
+          <div className="w-10" />
         </div>
+      </div>
+      {/* Spacer for fixed header */}
+      <div className="h-14" />
 
+      <div className="container px-4 md:px-6 py-6">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2" data-testid="button-ask-question">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">{translations.education.askQuestion}</span>
-            </Button>
+            <span></span>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
@@ -154,8 +164,8 @@ export default function EducationPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button 
-                className="w-full" 
+              <Button
+                className="w-full"
                 onClick={handleSubmitQuestion}
                 disabled={!newQuestion.title.trim() || !newQuestion.content.trim() || createQuestionMutation.isPending}
                 data-testid="button-submit-question"
@@ -225,7 +235,7 @@ export default function EducationPage() {
               <HelpCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">سوالی یافت نشد</h3>
               <p className="text-muted-foreground mb-4">
-                {search || category !== "all" 
+                {search || category !== "all"
                   ? "با تغییر فیلترها دوباره جستجو کنید"
                   : "اولین نفری باشید که سوال می‌پرسد!"
                 }

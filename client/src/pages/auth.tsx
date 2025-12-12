@@ -122,6 +122,11 @@ export default function AuthPage() {
                 <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center"><Users className="h-6 w-6 text-orange-500" /></div>
                 <div><p className="font-bold">مربی</p><p className="text-sm text-muted-foreground">میخوام آموزش بدم</p></div>
               </button>
+              <div className="pt-4 border-t mt-4">
+                <Button variant="ghost" className="w-full" onClick={() => setStep("login")}>
+                  قبلاً ثبت‌نام کردم / ورود
+                </Button>
+              </div>
             </div>
           )}
 
@@ -208,20 +213,29 @@ export default function AuthPage() {
 
           {step === "login" && (
             <div className="space-y-4">
-              <div className="text-center mb-4">
-                <p className="text-sm text-muted-foreground">خوش برگشتید! رمز عبور را وارد کنید</p>
-                <p className="font-bold mt-1" dir="ltr">{phone}</p>
+              <div className="flex items-center gap-2 mb-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setStep("phone"); setUserType(null); }}><ArrowRight className="h-4 w-4" /></Button>
+                <span className="text-sm text-muted-foreground">ورود به حساب</span>
               </div>
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3"><KeyRound className="h-7 w-7 text-primary" /></div>
+                <p className="text-sm text-muted-foreground">شماره موبایل و رمز عبور را وارد کنید</p>
+              </div>
+              <Input type="tel" placeholder="شماره موبایل" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))} className="h-12 text-center tracking-widest" maxLength={11} dir="ltr" />
               <div className="relative">
                 <Input type={showPassword ? "text" : "password"} placeholder="رمز عبور" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 text-left pr-12" dir="ltr" />
                 <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-10 w-10" onClick={() => setShowPassword(!showPassword)}>
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-              <Button className="w-full h-12" onClick={() => loginMutation.mutate()} disabled={loginMutation.isPending}>
+              <Button className="w-full h-12" onClick={() => loginMutation.mutate()} disabled={phone.length !== 11 || !password || loginMutation.isPending}>
                 {loginMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : "ورود"}
               </Button>
-              <Button variant="ghost" className="w-full" onClick={() => { setStep("phone"); setPhone(""); setPassword(""); }}>تغییر شماره</Button>
+              <div className="text-center">
+                <Button variant="link" className="text-sm" onClick={() => { setStep("phone"); setUserType(null); setPhone(""); setPassword(""); }}>
+                  حساب ندارم / ثبت‌نام
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

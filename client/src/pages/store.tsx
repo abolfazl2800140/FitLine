@@ -88,33 +88,38 @@ export default function StorePage() {
   const cartCount = cartItems.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
 
   return (
-    <div className="container px-4 md:px-6 py-6">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">{translations.store.title}</h1>
-          <p className="text-muted-foreground">
-            بهترین مکمل‌های ورزشی با تضمین اصالت
-          </p>
+    <div>
+      {/* Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
+        <div className="container px-4 md:px-6 py-4 flex items-center justify-between relative">
+          <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-primary-foreground hover:bg-white/20"
+                data-testid="button-cart"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {cartCount > 0 && (
+                  <Badge
+                    className="absolute -top-2 -left-2 h-5 w-5 p-0 flex items-center justify-center bg-white text-primary"
+                  >
+                    {toPersianNumber(cartCount)}
+                  </Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+          </Sheet>
+          <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
+          <div className="w-10" />
         </div>
+      </div>
+      {/* Spacer for fixed header */}
+      <div className="h-14" />
 
+      <div className="container px-4 md:px-6 py-6">
         <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-          <SheetTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="gap-2 relative"
-              data-testid="button-cart"
-            >
-              <ShoppingCart className="h-5 w-5" />
-              <span className="hidden sm:inline">{translations.store.cart}</span>
-              {cartCount > 0 && (
-                <Badge 
-                  className="absolute -top-2 -left-2 h-5 w-5 p-0 flex items-center justify-center"
-                >
-                  {toPersianNumber(cartCount)}
-                </Badge>
-              )}
-            </Button>
-          </SheetTrigger>
           <SheetContent side="left" className="w-full sm:max-w-md flex flex-col">
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
@@ -130,8 +135,8 @@ export default function StorePage() {
                 <p className="text-muted-foreground mb-4 text-sm">
                   محصولات مورد نظر خود را به سبد اضافه کنید
                 </p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setCartOpen(false)}
                 >
                   {translations.store.continueShopping}
@@ -142,15 +147,15 @@ export default function StorePage() {
                 <ScrollArea className="flex-1 -mx-6 px-6">
                   <div className="space-y-4 py-4">
                     {cartItems.map((item: any) => (
-                      <div 
-                        key={item.id} 
+                      <div
+                        key={item.id}
                         className="flex gap-3"
                         data-testid={`cart-item-${item.id}`}
                       >
                         <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden flex-shrink-0">
                           {item.supplement?.image ? (
-                            <img 
-                              src={item.supplement.image} 
+                            <img
+                              src={item.supplement.image}
                               alt={item.supplement.name}
                               className="w-full h-full object-cover"
                             />
@@ -172,22 +177,22 @@ export default function StorePage() {
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-6 w-6 text-muted-foreground hover:text-destructive"
                             onClick={() => updateCartMutation.mutate({ itemId: item.id, quantity: 0 })}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                           <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="h-6 w-6"
-                              onClick={() => updateCartMutation.mutate({ 
-                                itemId: item.id, 
-                                quantity: Math.max(0, (item.quantity || 1) - 1) 
+                              onClick={() => updateCartMutation.mutate({
+                                itemId: item.id,
+                                quantity: Math.max(0, (item.quantity || 1) - 1)
                               })}
                             >
                               <Minus className="h-3 w-3" />
@@ -195,13 +200,13 @@ export default function StorePage() {
                             <span className="w-6 text-center text-sm font-medium">
                               {toPersianNumber(item.quantity || 1)}
                             </span>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="h-6 w-6"
-                              onClick={() => updateCartMutation.mutate({ 
-                                itemId: item.id, 
-                                quantity: (item.quantity || 1) + 1 
+                              onClick={() => updateCartMutation.mutate({
+                                itemId: item.id,
+                                quantity: (item.quantity || 1) + 1
                               })}
                             >
                               <Plus className="h-3 w-3" />
@@ -220,8 +225,8 @@ export default function StorePage() {
                       {formatPrice(cartTotal)} {translations.coaches.toman}
                     </span>
                   </div>
-                  <Button 
-                    className="w-full glow-green" 
+                  <Button
+                    className="w-full glow-green"
                     size="lg"
                     data-testid="button-checkout"
                   >

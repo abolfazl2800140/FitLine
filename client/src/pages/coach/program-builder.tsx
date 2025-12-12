@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +39,7 @@ import {
 } from "lucide-react";
 import { toPersianNumber } from "@/lib/persian";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 interface Exercise {
     id: string;
@@ -89,25 +92,75 @@ const persianDays = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنب�
 
 export default function ProgramBuilderPage() {
     const { toast } = useToast();
+    const [, setLocation] = useLocation();
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [programTitle, setProgramTitle] = useState("");
     const [weeks, setWeeks] = useState(4);
     const [days, setDays] = useState<WorkoutDay[]>([
         { id: generateId(), title: "روز ۱ - پا", exercises: [], isExpanded: true },
     ]);
+
+    // Mutation for creating program
+    const createProgramMutation = useMutation({
+        mutationFn: async (data: any) => {
+            return apiRequest("POST", "/api/programs/create-for-student", data);
+        },
+        onSuccess: () => {
+            toast({
+                title: "برنامه ارسال شد",
+                description: `برنامه برای ${selectedStudent?.fullName} ارسال شد`,
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/coach/students"] });
+            setLocation("/coach");
+        },
+        onError: (error: Error) => {
+            toast({
+                title: "خطا",
+                description: error.message,
+                variant: "destructive",
+            });
+        },
+    });
     const [studentSheetOpen, setStudentSheetOpen] = useState(false);
     const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
-    // Mock students data - replace with actual API
-    const { data: students } = useQuery<any[]>({
-        queryKey: ["/api/coach/students"],
-        enabled: false, // Disable for now, will use mock data
+    const { data: user } = useQuery<any>({
+        queryKey: ["/api/auth/me"],
     });
 
-    const mockStudents = [
-        { id: "1", fullName: "علی احمدی", avatar: null, goal: "کاهش وزن" },
-        { id: "2", fullName: "سارا محمدی", avatar: null, goal: "افزایش حجم" },
-        { id: "3", fullName: "رضا کریمی", avatar: null, goal: "تناسب اندام" },
+    // Fetch real students from API
+    const { data: students } = useQuery<any[]>({
+        queryKey: ["/api/coach/students"],
+        enabled: !!user && user.role === "coach",
+    });
+
+    // Also fetch accepted coaching requests (students waiting for program)
+    const { data: requests } = useQuery<any[]>({
+        queryKey: ["/api/coach/requests"],
+        enabled: !!user && user.role === "coach",
+    });
+
+    // Combine students and accepted requests
+    const acceptedRequests = (requests || [])
+        .filter((r: any) => r.status === "accepted")
+        .map((r: any) => ({
+            id: r.user?.id,
+            fullName: r.user?.fullName,
+            avatar: r.user?.avatar,
+            goal: r.goal,
+            fromRequest: true,
+        }));
+
+    const allStudents = [
+        ...(students || []).map((s: any) => ({
+            id: s.id,
+            fullName: s.fullName,
+            avatar: s.avatar,
+            goal: s.programTitle || "شاگرد فعال",
+        })),
+        ...acceptedRequests.filter((r: any) =>
+            !(students || []).some((s: any) => s.id === r.id)
+        ),
     ];
 
     const addDay = () => {
@@ -243,28 +296,42 @@ export default function ProgramBuilderPage() {
             return;
         }
 
-        // TODO: API call to save and send program
-        toast({
-            title: "برنامه ارسال شد",
-            description: `برنامه برای ${selectedStudent.fullName} ارسال شد`,
+        // Send program to API
+        createProgramMutation.mutate({
+            studentId: selectedStudent.id,
+            title: programTitle || "برنامه تمرینی",
+            durationWeeks: weeks,
+            days: days.map(d => ({
+                title: d.title,
+                exercises: d.exercises.map(e => ({
+                    name: e.name,
+                    sets: e.sets,
+                    reps: e.reps,
+                })),
+            })),
         });
     };
 
     return (
         <div className="min-h-screen bg-background pb-24">
             {/* Header */}
-            <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b">
+            <div className="sticky top-0 z-40 bg-primary backdrop-blur-sm">
                 <div className="px-4 py-3">
-                    <div className="flex items-center justify-between">
-                        <h1 className="text-lg font-bold">برنامه‌ساز</h1>
+                    <div className="flex items-center justify-between relative">
                         <Button
                             onClick={handleSendProgram}
-                            className="gap-2"
-                            disabled={!selectedStudent}
+                            className="gap-2 bg-white text-primary hover:bg-white/90"
+                            disabled={createProgramMutation.isPending}
                         >
-                            <Send className="h-4 w-4" />
-                            ارسال
+                            {createProgramMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Send className="h-4 w-4" />
+                            )}
+                            {createProgramMutation.isPending ? "در حال ارسال..." : "ارسال"}
                         </Button>
+                        <span className="text-xl italic font-bold text-primary-foreground absolute left-1/2 -translate-x-1/2">FitLine</span>
+                        <div className="w-20" />
                     </div>
                 </div>
             </div>
@@ -313,33 +380,41 @@ export default function ProgramBuilderPage() {
                                     <SheetTitle>انتخاب شاگرد</SheetTitle>
                                 </SheetHeader>
                                 <div className="mt-4 space-y-2">
-                                    {mockStudents.map((student) => (
-                                        <button
-                                            key={student.id}
-                                            className={cn(
-                                                "w-full flex items-center gap-3 p-3 rounded-xl transition-colors",
-                                                selectedStudent?.id === student.id
-                                                    ? "bg-primary/10 border-2 border-primary"
-                                                    : "bg-card hover:bg-muted"
-                                            )}
-                                            onClick={() => {
-                                                setSelectedStudent(student);
-                                                setStudentSheetOpen(false);
-                                            }}
-                                        >
-                                            <Avatar className="h-10 w-10">
-                                                <AvatarImage src={student.avatar} />
-                                                <AvatarFallback>{student.fullName.charAt(0)}</AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex-1 text-right">
-                                                <p className="font-medium">{student.fullName}</p>
-                                                <p className="text-sm text-muted-foreground">{student.goal}</p>
-                                            </div>
-                                            {selectedStudent?.id === student.id && (
-                                                <Check className="h-5 w-5 text-primary" />
-                                            )}
-                                        </button>
-                                    ))}
+                                    {allStudents.length === 0 ? (
+                                        <div className="text-center py-8 text-muted-foreground">
+                                            <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                            <p>هنوز شاگردی ندارید</p>
+                                            <p className="text-sm">ابتدا درخواست‌های برنامه را قبول کنید</p>
+                                        </div>
+                                    ) : (
+                                        allStudents.map((student) => (
+                                            <button
+                                                key={student.id}
+                                                className={cn(
+                                                    "w-full flex items-center gap-3 p-3 rounded-xl transition-colors",
+                                                    selectedStudent?.id === student.id
+                                                        ? "bg-primary/10 border-2 border-primary"
+                                                        : "bg-card hover:bg-muted"
+                                                )}
+                                                onClick={() => {
+                                                    setSelectedStudent(student);
+                                                    setStudentSheetOpen(false);
+                                                }}
+                                            >
+                                                <Avatar className="h-10 w-10">
+                                                    <AvatarImage src={student.avatar} />
+                                                    <AvatarFallback>{student.fullName?.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1 text-right">
+                                                    <p className="font-medium">{student.fullName}</p>
+                                                    <p className="text-sm text-muted-foreground">{student.goal}</p>
+                                                </div>
+                                                {selectedStudent?.id === student.id && (
+                                                    <Check className="h-5 w-5 text-primary" />
+                                                )}
+                                            </button>
+                                        ))
+                                    )}
                                 </div>
                             </SheetContent>
                         </Sheet>
