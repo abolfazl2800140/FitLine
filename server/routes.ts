@@ -14,6 +14,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { getUserPoints, getLeaderboard, POINT_VALUES } from "./points";
+import { sendPushNotification } from "./push-notifications";
 
 // Setup multer for file uploads
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -1061,6 +1062,25 @@ export async function registerRoutes(
         durationWeeks: durationWeeks || 4,
         days,
       });
+
+      // Send push notification to student
+      try {
+        await sendPushNotification(studentId, {
+          title: '🎉 برنامه جدید!',
+          body: `مربی ${req.user!.fullName} برنامه "${title || 'برنامه تمرینی'}" رو برات فرستاد`,
+          tag: 'new-program',
+          data: {
+            type: 'new_program',
+            programId: result.program.id,
+            url: '/programs',
+          },
+          actions: [
+            { action: 'view', title: 'مشاهده برنامه' },
+          ],
+        });
+      } catch (notifError) {
+        console.error('Failed to send program notification:', notifError);
+      }
 
       res.json(result);
     } catch (err: any) {
