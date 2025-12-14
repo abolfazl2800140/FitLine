@@ -425,6 +425,16 @@ export async function registerRoutes(
     }
   });
 
+  // Dashboard stats for user
+  app.get('/api/user/dashboard-stats', requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getUserDashboardStats(req.user!.id);
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post('/api/programs/:id/enroll', requireAuth, async (req, res) => {
     try {
       const enrollment = await storage.enrollInProgram(req.user!.id, req.params.id);
@@ -523,15 +533,25 @@ export async function registerRoutes(
     }
   });
 
+  // Get replies for a comment
+  app.get('/api/comments/:id/replies', async (req, res) => {
+    try {
+      const replies = await storage.getCommentReplies(req.params.id);
+      res.json(replies);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post('/api/posts/:id/comments', requireAuth, async (req, res) => {
     try {
-      const { content } = req.body;
+      const { content, parentId } = req.body;
       if (!content || !content.trim()) {
         return res.status(400).json({ message: 'Content is required' });
       }
-      const comment = await storage.createComment(req.user!.id, req.params.id, content);
+      const comment = await storage.createComment(req.user!.id, req.params.id, content, parentId);
 
-      // Notify post owner
+      // Notify post owner or parent comment owner
       const post = await storage.getPost(req.params.id);
       if (post && post.userId !== req.user!.id) {
         const sendToUser = (global as any).wsSendToUser;
@@ -702,6 +722,7 @@ export async function registerRoutes(
         conversationId: req.params.id,
         senderId: req.user!.id,
         content: req.body.content,
+        replyToId: req.body.replyToId || null,
       });
       const message = await storage.sendMessage(data);
 
@@ -883,6 +904,32 @@ export async function registerRoutes(
         return res.status(400).json({ message: 'شما قبلاً یک درخواست در انتظار برای این مربی دارید' });
       }
 
+      // Check monthly limit for workout and nutrition requests
+      const requestType = data.type as string;
+      console.log('Request type:', requestType, 'User ID:', req.user!.id);
+
+      if (requestType === 'workout' || requestType === 'both') {
+        const workoutCount = await storage.getUserMonthlyRequestCount(req.user!.id, 'workout');
+        console.log('Workout count this month:', workoutCount);
+        if (workoutCount >= 1) {
+          return res.status(400).json({
+            message: 'شما در این ماه قبلاً یک برنامه تمرینی دریافت کرده‌اید. در ماه فقط یک برنامه تمرینی می‌توانید بگیرید.',
+            code: 'MONTHLY_WORKOUT_LIMIT'
+          });
+        }
+      }
+
+      if (requestType === 'nutrition' || requestType === 'both') {
+        const nutritionCount = await storage.getUserMonthlyRequestCount(req.user!.id, 'nutrition');
+        console.log('Nutrition count this month:', nutritionCount);
+        if (nutritionCount >= 1) {
+          return res.status(400).json({
+            message: 'شما در این ماه قبلاً یک برنامه تغذیه دریافت کرده‌اید. در ماه فقط یک برنامه تغذیه می‌توانید بگیرید.',
+            code: 'MONTHLY_NUTRITION_LIMIT'
+          });
+        }
+      }
+
       const request = await storage.createCoachingRequest(data);
 
       // Notify coach about new request
@@ -906,6 +953,29 @@ export async function registerRoutes(
     try {
       const requests = await storage.getCoachingRequestsForUser(req.user!.id);
       res.json(requests);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get user's monthly request status
+  app.get('/api/coaching-requests/monthly-status', requireAuth, async (req, res) => {
+    try {
+      const workoutCount = await storage.getUserMonthlyRequestCount(req.user!.id, 'workout');
+      const nutritionCount = await storage.getUserMonthlyRequestCount(req.user!.id, 'nutrition');
+
+      res.json({
+        workout: {
+          used: workoutCount >= 1,
+          count: workoutCount,
+          limit: 1
+        },
+        nutrition: {
+          used: nutritionCount >= 1,
+          count: nutritionCount,
+          limit: 1
+        }
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

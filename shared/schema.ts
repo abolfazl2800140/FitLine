@@ -113,7 +113,9 @@ export const comments = pgTable("comments", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   postId: varchar("post_id", { length: 36 }).notNull().references(() => posts.id),
   userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  parentId: varchar("parent_id", { length: 36 }).references((): any => comments.id),
   content: text("content").notNull(),
+  replyCount: integer("reply_count").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -151,6 +153,7 @@ export const messages = pgTable("messages", {
   conversationId: varchar("conversation_id", { length: 36 }).notNull().references(() => conversations.id),
   senderId: varchar("sender_id", { length: 36 }).notNull().references(() => users.id),
   content: text("content").notNull(),
+  replyToId: varchar("reply_to_id", { length: 36 }).references((): any => messages.id),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -381,9 +384,11 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
   likes: many(likes),
 }));
 
-export const commentsRelations = relations(comments, ({ one }) => ({
+export const commentsRelations = relations(comments, ({ one, many }) => ({
   post: one(posts, { fields: [comments.postId], references: [posts.id] }),
   user: one(users, { fields: [comments.userId], references: [users.id] }),
+  parent: one(comments, { fields: [comments.parentId], references: [comments.id], relationName: "replies" }),
+  replies: many(comments, { relationName: "replies" }),
 }));
 
 export const likesRelations = relations(likes, ({ one }) => ({
@@ -410,6 +415,7 @@ export const conversationsRelations = relations(conversations, ({ one, many }) =
 export const messagesRelations = relations(messages, ({ one }) => ({
   conversation: one(conversations, { fields: [messages.conversationId], references: [conversations.id] }),
   sender: one(users, { fields: [messages.senderId], references: [users.id] }),
+  replyTo: one(messages, { fields: [messages.replyToId], references: [messages.id], relationName: "replies" }),
 }));
 
 export const supplementsRelations = relations(supplements, ({ many }) => ({

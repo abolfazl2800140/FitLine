@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc, and, or, sql, like, ilike, gte, lte } from "drizzle-orm";
+import { eq, desc, and, or, sql, like, ilike, gte, lte, isNull } from "drizzle-orm";
 import {
   users, coachProfiles, programs, workoutDays, exercises, userPrograms, workoutLogs,
   posts, comments, likes, follows, conversations, messages,
@@ -105,6 +105,13 @@ export interface IStorage {
   // Progress
   getProgressPhotos(userId: string): Promise<any[]>;
   getUserBadges(userId: string): Promise<any[]>;
+  getUserDashboardStats(userId: string): Promise<{
+    points: number;
+    calories: number;
+    rank: number | null;
+    progress: number;
+    streak: number;
+  }>;
 
   // Coaching Requests
   createCoachingRequest(request: InsertCoachingRequest): Promise<CoachingRequest>;
@@ -113,6 +120,7 @@ export interface IStorage {
   getCoachingRequest(id: string): Promise<any | undefined>;
   updateCoachingRequestStatus(id: string, status: 'accepted' | 'rejected', rejectionReason?: string): Promise<CoachingRequest | undefined>;
   getOrCreateConversation(participant1Id: string, participant2Id: string): Promise<Conversation>;
+  getUserMonthlyRequestCount(userId: string, type: 'workout' | 'nutrition'): Promise<number>;
 
   // Programs
   createProgramWithWorkouts(data: {
@@ -583,12 +591,15 @@ export class DbStorage implements IStorage {
 
   // Comments
   async getComments(postId: string): Promise<any[]> {
+    // فقط کامنت‌های اصلی (بدون parent)
     const result = await db
       .select({
         id: comments.id,
         postId: comments.postId,
         userId: comments.userId,
+        parentId: comments.parentId,
         content: comments.content,
+        replyCount: comments.replyCount,
         createdAt: comments.createdAt,
         user: {
           id: users.id,
@@ -598,22 +609,60 @@ export class DbStorage implements IStorage {
       })
       .from(comments)
       .innerJoin(users, eq(comments.userId, users.id))
-      .where(eq(comments.postId, postId))
+      .where(and(eq(comments.postId, postId), isNull(comments.parentId)))
       .orderBy(desc(comments.createdAt));
     return result;
   }
 
-  async createComment(userId: string, postId: string, content: string): Promise<any> {
+  async getCommentReplies(commentId: string): Promise<any[]> {
+    const result = await db
+      .select({
+        id: comments.id,
+        postId: comments.postId,
+        userId: comments.userId,
+        parentId: comments.parentId,
+        content: comments.content,
+        replyCount: comments.replyCount,
+        createdAt: comments.createdAt,
+        user: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(comments)
+      .innerJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.parentId, commentId))
+      .orderBy(comments.createdAt);
+    return result;
+  }
+
+  async createComment(userId: string, postId: string, content: string, parentId?: string): Promise<any> {
     const [result] = await db
       .insert(comments)
-      .values({ userId, postId, content })
+      .values({ userId, postId, content, parentId: parentId || null })
       .returning();
 
+    // آپدیت تعداد کامنت پست
     await db.update(posts)
       .set({ commentCount: sql`${posts.commentCount} + 1` })
       .where(eq(posts.id, postId));
 
-    return result;
+    // اگر ریپلای هست، تعداد ریپلای کامنت والد رو آپدیت کن
+    if (parentId) {
+      await db.update(comments)
+        .set({ replyCount: sql`${comments.replyCount} + 1` })
+        .where(eq(comments.id, parentId));
+    }
+
+    // گرفتن اطلاعات کاربر برای برگرداندن
+    const [user] = await db.select({
+      id: users.id,
+      fullName: users.fullName,
+      avatar: users.avatar,
+    }).from(users).where(eq(users.id, userId));
+
+    return { ...result, user };
   }
 
   // Supplements
@@ -800,22 +849,60 @@ export class DbStorage implements IStorage {
     return enriched;
   }
 
-  async getMessages(conversationId: string): Promise<Message[]> {
+  async getMessages(conversationId: string): Promise<any[]> {
     const result = await db
       .select()
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(messages.createdAt);
 
-    return result;
+    // Enrich messages with reply info
+    const enrichedMessages = await Promise.all(result.map(async (msg) => {
+      let replyTo = null;
+      if (msg.replyToId) {
+        const [replyMsg] = await db
+          .select({
+            id: messages.id,
+            content: messages.content,
+            senderId: messages.senderId,
+            senderName: users.fullName,
+          })
+          .from(messages)
+          .leftJoin(users, eq(messages.senderId, users.id))
+          .where(eq(messages.id, msg.replyToId))
+          .limit(1);
+        replyTo = replyMsg || null;
+      }
+      return { ...msg, replyTo };
+    }));
+
+    return enrichedMessages;
   }
 
-  async sendMessage(message: InsertMessage): Promise<Message> {
+  async sendMessage(message: InsertMessage): Promise<any> {
     const [result] = await db.insert(messages).values(message).returning();
     await db.update(conversations)
       .set({ lastMessage: message.content, lastMessageAt: new Date() })
       .where(eq(conversations.id, message.conversationId));
-    return result;
+
+    // If this is a reply, fetch the reply info
+    let replyTo = null;
+    if (message.replyToId) {
+      const [replyMsg] = await db
+        .select({
+          id: messages.id,
+          content: messages.content,
+          senderId: messages.senderId,
+          senderName: users.fullName,
+        })
+        .from(messages)
+        .leftJoin(users, eq(messages.senderId, users.id))
+        .where(eq(messages.id, message.replyToId))
+        .limit(1);
+      replyTo = replyMsg || null;
+    }
+
+    return { ...result, replyTo };
   }
 
   async createConversation(data: InsertConversation): Promise<Conversation> {
@@ -1273,6 +1360,112 @@ export class DbStorage implements IStorage {
     return studentsWithDetails;
   }
 
+  async getUserDashboardStats(userId: string): Promise<{
+    points: number;
+    calories: number;
+    rank: number | null;
+    progress: number;
+    streak: number;
+  }> {
+    // Get user points
+    const [user] = await db
+      .select({ points: users.points })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    // Get user's rank in current league
+    const now = new Date();
+    const [currentLeague] = await db
+      .select()
+      .from(leagues)
+      .where(
+        and(
+          eq(leagues.month, now.getMonth() + 1),
+          eq(leagues.year, now.getFullYear()),
+          eq(leagues.isActive, true)
+        )
+      )
+      .limit(1);
+
+    let rank: number | null = null;
+    if (currentLeague) {
+      const [memberRank] = await db
+        .select({ rank: leagueMembers.rank })
+        .from(leagueMembers)
+        .where(
+          and(
+            eq(leagueMembers.leagueId, currentLeague.id),
+            eq(leagueMembers.userId, userId)
+          )
+        )
+        .limit(1);
+      rank = memberRank?.rank || null;
+    }
+
+    // Get workout logs count for this month (as calories estimate)
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [workoutCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(workoutLogs)
+      .where(
+        and(
+          eq(workoutLogs.userId, userId),
+          gte(workoutLogs.completedAt, firstDayOfMonth)
+        )
+      );
+    // Estimate 300 calories per workout
+    const calories = (Number(workoutCount?.count) || 0) * 300;
+
+    // Get user's program progress
+    const [userProgram] = await db
+      .select({ progress: userPrograms.progress })
+      .from(userPrograms)
+      .where(eq(userPrograms.userId, userId))
+      .orderBy(desc(userPrograms.startDate))
+      .limit(1);
+    const progress = Number(userProgram?.progress) || 0;
+
+    // Calculate streak (consecutive days with workout)
+    const workoutDates = await db
+      .select({ date: sql<string>`DATE(${workoutLogs.completedAt})` })
+      .from(workoutLogs)
+      .where(eq(workoutLogs.userId, userId))
+      .orderBy(desc(workoutLogs.completedAt))
+      .limit(30);
+
+    let streak = 0;
+    if (workoutDates.length > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < workoutDates.length; i++) {
+        const workoutDate = new Date(workoutDates[i].date);
+        workoutDate.setHours(0, 0, 0, 0);
+
+        const expectedDate = new Date(today);
+        expectedDate.setDate(today.getDate() - i);
+
+        if (workoutDate.getTime() === expectedDate.getTime()) {
+          streak++;
+        } else if (i === 0 && workoutDate.getTime() === new Date(today.getTime() - 86400000).getTime()) {
+          // If no workout today but yesterday, still count
+          streak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return {
+      points: user?.points || 0,
+      calories,
+      rank,
+      progress: Math.round(progress),
+      streak,
+    };
+  }
+
   // Coaching Requests
   async createCoachingRequest(request: InsertCoachingRequest): Promise<CoachingRequest> {
     const [result] = await db.insert(coachingRequests).values(request).returning();
@@ -1353,6 +1546,42 @@ export class DbStorage implements IStorage {
       .returning();
 
     return result;
+  }
+
+  async getUserMonthlyRequestCount(userId: string, type: 'workout' | 'nutrition'): Promise<number> {
+    // Get first day of current month
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Get all requests for this user this month
+    const requests = await db
+      .select({
+        type: coachingRequests.type,
+        status: coachingRequests.status,
+      })
+      .from(coachingRequests)
+      .where(
+        and(
+          eq(coachingRequests.userId, userId),
+          gte(coachingRequests.createdAt, firstDayOfMonth)
+        )
+      );
+
+    // Filter by type and status manually
+    const count = requests.filter(r => {
+      // Only count pending or accepted
+      if (r.status !== 'pending' && r.status !== 'accepted') return false;
+
+      // Check type
+      if (type === 'workout') {
+        return r.type === 'workout' || r.type === 'both';
+      } else {
+        return r.type === 'nutrition' || r.type === 'both';
+      }
+    }).length;
+
+    console.log(`Monthly request count for user ${userId}, type ${type}:`, count, 'from', requests.length, 'total requests');
+    return count;
   }
 
   async getOrCreateConversation(participant1Id: string, participant2Id: string): Promise<Conversation> {

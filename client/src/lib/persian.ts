@@ -104,6 +104,12 @@ export const translations = {
     writeComment: "نظر خود را بنویسید...",
     noComments: "هنوز نظری ثبت نشده",
     loadMore: "بارگذاری بیشتر",
+    reply: "پاسخ",
+    replyTo: "پاسخ به",
+    replies: "پاسخ‌ها",
+    showReplies: "نمایش پاسخ‌ها",
+    hideReplies: "بستن پاسخ‌ها",
+    cancel: "انصراف",
   },
 
   // Messages

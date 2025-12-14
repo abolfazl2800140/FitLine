@@ -2,7 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Share2, MoreHorizontal, Bookmark } from "lucide-react";
-import { translations, formatRelativeTime, toPersianNumber } from "@/lib/persian";
+import { formatRelativeTime, toPersianNumber } from "@/lib/persian";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 
 interface PostCardProps {
   id: string;
@@ -51,7 +52,6 @@ export function PostCard({
   const [liked, setLiked] = useState(isLiked);
   const [saved, setSaved] = useState(isSaved);
   const [likes, setLikes] = useState(likeCount);
-
   const [likeAnimating, setLikeAnimating] = useState(false);
   const [, setLocation] = useLocation();
 
@@ -166,7 +166,7 @@ export function PostCard({
             variant="ghost"
             size="sm"
             className="gap-2 h-9 px-3 rounded-full press-effect"
-            onClick={onComment}
+            onClick={() => setLocation(`/post/${id}`)}
             data-testid={`button-comment-${id}`}
           >
             <MessageCircle className="h-5 w-5" />
@@ -195,6 +195,7 @@ export function PostCard({
           <Bookmark className={cn("h-5 w-5 transition-transform", saved && "fill-current scale-110")} />
         </Button>
       </CardFooter>
+
     </Card>
   );
 }

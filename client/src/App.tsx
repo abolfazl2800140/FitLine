@@ -35,6 +35,7 @@ import MyProgramsPage from "@/pages/my-programs";
 import ProgramDetailPage from "@/pages/program-detail";
 import LeaderboardPage from "@/pages/leaderboard";
 import NutritionPage from "@/pages/nutrition";
+import PostDetailPage from "@/pages/post-detail";
 
 function Router() {
   return (
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/coaches" component={CoachesPage} />
       <Route path="/coaches/:id" component={CoachDetailPage} />
       <Route path="/feed" component={FeedPage} />
+      <Route path="/post/:id" component={PostDetailPage} />
       <Route path="/programs" component={ProgramsPage} />
       <Route path="/programs/:id" component={ProgramsPage} />
       <Route path="/store" component={StorePage} />

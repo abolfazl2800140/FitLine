@@ -1,13 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { StatCard } from "@/components/ui/stat-card";
 import { CoachCard, CoachCardSkeleton } from "@/components/ui/coach-card";
 import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
 import { ProgramCard, ProgramCardSkeleton } from "@/components/ui/program-card";
 import { ChallengeCard, ChallengeCardSkeleton } from "@/components/ui/challenge-card";
-import { PointsDisplay } from "@/components/ui/points-display";
-import { translations, toPersianNumber } from "@/lib/persian";
+import { toPersianNumber } from "@/lib/persian";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -19,7 +17,6 @@ import {
   Target,
   Users,
   Zap,
-  Play,
   Star,
   Apple,
 } from "lucide-react";
@@ -47,6 +44,17 @@ export default function HomePage() {
     queryKey: ["/api/auth/me"],
   });
 
+  const { data: dashboardStats } = useQuery<{
+    points: number;
+    calories: number;
+    rank: number | null;
+    progress: number;
+    streak: number;
+  }>({
+    queryKey: ["/api/user/dashboard-stats"],
+    enabled: !!user,
+  });
+
   // If user is a coach, show coach dashboard
   if (user?.role === "coach") {
     return <CoachHomePage />;
@@ -59,10 +67,14 @@ export default function HomePage() {
         {/* Header */}
         <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
           <div className="flex items-center justify-between px-5 h-14 relative">
-            <Badge variant="secondary" className="gap-1 px-3 py-1.5 bg-white/20 text-primary-foreground border-0">
-              <Flame className="h-4 w-4 text-orange-300" />
-              <span className="font-bold">۱۲ روز</span>
-            </Badge>
+            {dashboardStats && dashboardStats.streak > 0 ? (
+              <Badge variant="secondary" className="gap-1 px-3 py-1.5 bg-white/20 text-primary-foreground border-0">
+                <Flame className="h-4 w-4 text-orange-300" />
+                <span className="font-bold">{toPersianNumber(dashboardStats.streak)} روز</span>
+              </Badge>
+            ) : (
+              <div className="w-16" />
+            )}
             <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
             <div className="w-16" />
           </div>
@@ -75,22 +87,22 @@ export default function HomePage() {
           <div className="grid grid-cols-4 gap-3">
             <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
               <Star className="h-5 w-5 mx-auto mb-1 text-primary fill-primary" />
-              <PointsDisplay showIcon={false} size="lg" className="justify-center" />
+              <p className="text-lg font-bold">{toPersianNumber(dashboardStats?.points || user?.points || 0)}</p>
               <p className="text-[10px] text-muted-foreground">امتیاز</p>
             </div>
             <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
               <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
-              <p className="text-lg font-bold">۲.۴K</p>
+              <p className="text-lg font-bold">{toPersianNumber(dashboardStats?.calories || 0)}</p>
               <p className="text-[10px] text-muted-foreground">کالری</p>
             </div>
             <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
               <Trophy className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
-              <p className="text-lg font-bold">#۱۲</p>
+              <p className="text-lg font-bold">{dashboardStats?.rank ? `#${toPersianNumber(dashboardStats.rank)}` : '-'}</p>
               <p className="text-[10px] text-muted-foreground">رتبه</p>
             </div>
             <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
               <TrendingUp className="h-5 w-5 mx-auto mb-1 text-green-500" />
-              <p className="text-lg font-bold">۸۵%</p>
+              <p className="text-lg font-bold">{toPersianNumber(dashboardStats?.progress || 0)}%</p>
               <p className="text-[10px] text-muted-foreground">پیشرفت</p>
             </div>
           </div>

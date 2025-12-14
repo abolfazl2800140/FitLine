@@ -221,23 +221,38 @@
   h3 { @apply text-2xl md:text-3xl; }
   h4 { @apply text-xl md:text-2xl; }
 
-  /* Scrollbar styling - Minimal */
+  /* Hide scrollbar globally for mobile-like feel */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    display: none;
+    width: 0;
+    height: 0;
   }
 
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+  * {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
   }
 
-  ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full;
-    transition: background-color 0.2s;
-  }
+  /* Show scrollbar only on desktop when hovering (optional) */
+  @media (min-width: 1024px) and (hover: hover) {
+    .show-scrollbar-desktop::-webkit-scrollbar {
+      display: block;
+      width: 6px;
+      height: 6px;
+    }
 
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+    .show-scrollbar-desktop::-webkit-scrollbar-track {
+      @apply bg-transparent;
+    }
+
+    .show-scrollbar-desktop::-webkit-scrollbar-thumb {
+      @apply bg-muted-foreground/20 rounded-full;
+      transition: background-color 0.2s;
+    }
+
+    .show-scrollbar-desktop::-webkit-scrollbar-thumb:hover {
+      @apply bg-muted-foreground/40;
+    }
   }
 
   /* Custom selection color */

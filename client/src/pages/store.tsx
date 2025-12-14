@@ -91,7 +91,7 @@ export default function StorePage() {
     <div>
       {/* Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
-        <div className="container px-4 md:px-6 py-4 flex items-center justify-between relative">
+        <div className="container px-4 md:px-6 h-14 flex items-center justify-between relative">
           <Sheet open={cartOpen} onOpenChange={setCartOpen}>
             <SheetTrigger asChild>
               <Button
