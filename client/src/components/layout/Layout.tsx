@@ -36,20 +36,25 @@ export function Layout({ children }: LayoutProps) {
   }
 
   const isHomePage = location === "/";
+  const isCoachDetailPage = location.startsWith("/coaches/");
+  const isSupplementDetailPage = location.startsWith("/supplement/");
+  const hideBottomNav = isCoachDetailPage || isSupplementDetailPage;
 
   return (
     <div className="min-h-screen bg-background">
-      {isHomePage && <TopNav user={currentUser} />}
+      {/* TopNav only on non-home pages - home has its own header */}
       <SwipeBack>
-        <main className="pb-20 md:pb-0">
+        <main className={hideBottomNav ? "" : "pb-20 md:pb-0"}>
           <PageTransition>
             {children}
           </PageTransition>
         </main>
       </SwipeBack>
-      <div className="bottom-nav-container">
-        <BottomNav />
-      </div>
+      {!hideBottomNav && (
+        <div className="bottom-nav-container">
+          <BottomNav />
+        </div>
+      )}
     </div>
   );
 }

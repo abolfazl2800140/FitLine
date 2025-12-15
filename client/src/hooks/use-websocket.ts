@@ -46,10 +46,16 @@ export function useWebSocket(): UseWebSocketReturn {
         }
 
         const connect = () => {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const host = window.location.host;
+                if (!host) {
+                    console.warn('WebSocket: host not available');
+                    return;
+                }
+                const wsUrl = `${protocol}//${host}/ws`;
 
-            wsInstance = new WebSocket(wsUrl);
+                wsInstance = new WebSocket(wsUrl);
 
             wsInstance.onopen = () => {
                 console.log('WebSocket connected');
@@ -97,6 +103,9 @@ export function useWebSocket(): UseWebSocketReturn {
             wsInstance.onerror = (error) => {
                 console.error('WebSocket error:', error);
             };
+            } catch (error) {
+                console.warn('WebSocket connection failed:', error);
+            }
         };
 
         connect();

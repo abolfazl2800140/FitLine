@@ -206,17 +206,20 @@ export default function ProfilePage() {
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Dumbbell className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{toPersianNumber(userPrograms?.length || 0)}</p>
-                <p className="text-xs text-muted-foreground">برنامه فعال</p>
-              </div>
-            </CardContent>
-          </Card>
+          <Link href="/my-programs">
+            <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Dumbbell className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xl font-bold">{toPersianNumber(userPrograms?.length || 0)}</p>
+                  <p className="text-xs text-muted-foreground">برنامه فعال</p>
+                </div>
+                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">

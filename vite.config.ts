@@ -3,7 +3,11 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      fastRefresh: true,
+    }),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -31,6 +35,16 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'wouter', '@tanstack/react-query'],
+    include: [
+      'react', 
+      'react-dom', 
+      'wouter', 
+      '@tanstack/react-query',
+      'framer-motion',
+      'lucide-react',
+      'clsx',
+      'tailwind-merge',
+    ],
   },
+  cacheDir: '.vite',
 });

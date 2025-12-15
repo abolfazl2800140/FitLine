@@ -49,6 +49,7 @@ export default function CoachRequestsPage() {
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
     const [rejectReason, setRejectReason] = useState("");
     const [showRejectDialog, setShowRejectDialog] = useState(false);
+    const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -58,6 +59,7 @@ export default function CoachRequestsPage() {
 
     const acceptMutation = useMutation({
         mutationFn: async (requestId: string) => {
+            setProcessingRequestId(requestId);
             return apiRequest("POST", `/api/coaching-requests/${requestId}/accept`);
         },
         onSuccess: (data) => {
@@ -77,6 +79,9 @@ export default function CoachRequestsPage() {
                 description: error.message,
                 variant: "destructive",
             });
+        },
+        onSettled: () => {
+            setProcessingRequestId(null);
         },
     });
 
@@ -197,9 +202,9 @@ export default function CoachRequestsPage() {
                                                 <Button
                                                     className="flex-1 gap-2"
                                                     onClick={() => acceptMutation.mutate(request.id)}
-                                                    disabled={acceptMutation.isPending}
+                                                    disabled={processingRequestId === request.id || acceptMutation.isPending}
                                                 >
-                                                    {acceptMutation.isPending ? (
+                                                    {processingRequestId === request.id ? (
                                                         <Loader2 className="h-4 w-4 animate-spin" />
                                                     ) : (
                                                         <Check className="h-4 w-4" />
@@ -213,6 +218,7 @@ export default function CoachRequestsPage() {
                                                         setSelectedRequest(request);
                                                         setShowRejectDialog(true);
                                                     }}
+                                                    disabled={processingRequestId === request.id}
                                                 >
                                                     <X className="h-4 w-4" />
                                                     رد

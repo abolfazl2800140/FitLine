@@ -593,6 +593,47 @@ export async function registerRoutes(
     }
   });
 
+  // Supplement Reviews
+  app.get('/api/supplements/:id/reviews', async (req, res) => {
+    try {
+      const reviews = await storage.getSupplementReviews(req.params.id);
+      res.json(reviews);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post('/api/supplements/:id/reviews', requireAuth, async (req, res) => {
+    try {
+      // Check if user has purchased this supplement
+      const hasPurchased = await storage.hasUserPurchasedSupplement(req.user!.id, req.params.id);
+      if (!hasPurchased) {
+        return res.status(403).json({ message: 'فقط خریداران این محصول می‌توانند نظر ثبت کنند' });
+      }
+
+      const { rating, comment } = req.body;
+      const review = await storage.createSupplementReview({
+        supplementId: req.params.id,
+        userId: req.user!.id,
+        rating,
+        comment,
+      });
+      res.json(review);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Check if user can review a supplement
+  app.get('/api/supplements/:id/can-review', requireAuth, async (req, res) => {
+    try {
+      const hasPurchased = await storage.hasUserPurchasedSupplement(req.user!.id, req.params.id);
+      res.json({ canReview: hasPurchased });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Cart
   app.get('/api/cart', requireAuth, async (req, res) => {
     try {
@@ -1028,11 +1069,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: 'این درخواست قبلاً پردازش شده است' });
       }
 
+      // Update request status atomically (only if still pending)
+      const updatedRequest = await storage.updateCoachingRequestStatus(req.params.id, 'accepted');
+      if (!updatedRequest) {
+        return res.status(400).json({ message: 'این درخواست قبلاً پردازش شده است' });
+      }
+
       // Create or get conversation
       const conversation = await storage.getOrCreateConversation(request.userId, request.coachId);
-
-      // Update request status
-      await storage.updateCoachingRequestStatus(req.params.id, 'accepted');
 
       // Update request with conversation ID
       const { db } = await import('./db');
@@ -1093,7 +1137,10 @@ export async function registerRoutes(
       }
 
       const { reason } = req.body;
-      await storage.updateCoachingRequestStatus(req.params.id, 'rejected', reason);
+      const updatedRequest = await storage.updateCoachingRequestStatus(req.params.id, 'rejected', reason);
+      if (!updatedRequest) {
+        return res.status(400).json({ message: 'این درخواست قبلاً پردازش شده است' });
+      }
 
       // Notify user that request was rejected
       const sendToUser = (global as any).wsSendToUser;

@@ -70,7 +70,7 @@ export function SupplementCard({
       )}
       data-testid={`card-supplement-${id}`}
     >
-      <Link href={`/store/${id}`}>
+      <Link href={`/supplement/${id}`}>
         <div className="relative aspect-square overflow-hidden bg-muted/50 image-zoom">
           {image ? (
             <img

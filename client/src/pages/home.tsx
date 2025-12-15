@@ -6,24 +6,30 @@ import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
 import { ProgramCard, ProgramCardSkeleton } from "@/components/ui/program-card";
 import { ChallengeCard, ChallengeCardSkeleton } from "@/components/ui/challenge-card";
 import { toPersianNumber } from "@/lib/persian";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Dumbbell,
   Flame,
   Trophy,
-  TrendingUp,
   ChevronLeft,
-  Target,
   Users,
   Zap,
   Star,
   Apple,
+  ShoppingBag,
+  MessageCircle,
+  Newspaper,
+  GraduationCap,
+  Settings,
+  User,
 } from "lucide-react";
 import CoachHomePage from "@/pages/coach/home";
+import { PullToRefresh } from "@/components/ui/pull-to-refresh";
 
 
 export default function HomePage() {
+  const queryClient = useQueryClient();
   const { data: coaches, isLoading: coachesLoading } = useQuery<any[]>({
     queryKey: ["/api/coaches"],
   });
@@ -60,6 +66,20 @@ export default function HomePage() {
     return <CoachHomePage />;
   }
 
+  // Refresh function for pull-to-refresh
+  const handleRefresh = async () => {
+    // Run refresh and minimum delay in parallel
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/programs"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/challenges"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/user/dashboard-stats"] }),
+      // Minimum 1 second delay so user feels the refresh
+      new Promise(resolve => setTimeout(resolve, 1000)),
+    ]);
+  };
+
   // App-style dashboard for logged-in users (athletes)
   if (user) {
     return (
@@ -81,83 +101,123 @@ export default function HomePage() {
         </div>
         {/* Spacer for fixed header */}
         <div className="h-14" />
+        
+        <PullToRefresh onRefresh={handleRefresh}>
+          <div className="pb-4">
 
-        {/* Quick Stats */}
-        <section className="px-5 py-4">
+        {/* Stats & Programs Combined Section */}
+        <section className="px-4 pt-3 pb-4">
+          {/* Stats Row */}
+          <div className="flex gap-3 mb-4">
+            {/* Points */}
+            <div className="flex-1 flex items-center gap-3 bg-primary/10 rounded-xl p-3">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <Star className="h-5 w-5 text-primary fill-primary" />
+              </div>
+              <div>
+                <p className="text-xl font-black text-primary">{toPersianNumber(dashboardStats?.points || user?.points || 0)}</p>
+                <p className="text-[11px] text-muted-foreground">امتیاز</p>
+              </div>
+            </div>
+            {/* Rank */}
+            <div className="flex-1 flex items-center gap-3 bg-yellow-500/10 rounded-xl p-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                <Trophy className="h-5 w-5 text-yellow-500" />
+              </div>
+              <div>
+                <p className="text-xl font-black text-yellow-500">{dashboardStats?.rank ? toPersianNumber(dashboardStats.rank) : '-'}</p>
+                <p className="text-[11px] text-muted-foreground">رتبه</p>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        {/* Quick Access Grid */}
+        <section className="px-4 py-4">
+          <h3 className="text-sm font-bold text-muted-foreground mb-3">دسترسی سریع</h3>
           <div className="grid grid-cols-4 gap-3">
-            <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
-              <Star className="h-5 w-5 mx-auto mb-1 text-primary fill-primary" />
-              <p className="text-lg font-bold">{toPersianNumber(dashboardStats?.points || user?.points || 0)}</p>
-              <p className="text-[10px] text-muted-foreground">امتیاز</p>
-            </div>
-            <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
-              <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
-              <p className="text-lg font-bold">{toPersianNumber(dashboardStats?.calories || 0)}</p>
-              <p className="text-[10px] text-muted-foreground">کالری</p>
-            </div>
-            <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
-              <Trophy className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
-              <p className="text-lg font-bold">{dashboardStats?.rank ? `#${toPersianNumber(dashboardStats.rank)}` : '-'}</p>
-              <p className="text-[10px] text-muted-foreground">رتبه</p>
-            </div>
-            <div className="bg-card rounded-2xl p-3 text-center border border-border/50">
-              <TrendingUp className="h-5 w-5 mx-auto mb-1 text-green-500" />
-              <p className="text-lg font-bold">{toPersianNumber(dashboardStats?.progress || 0)}%</p>
-              <p className="text-[10px] text-muted-foreground">پیشرفت</p>
-            </div>
-          </div>
-        </section>
-
-        {/* My Programs Card */}
-        <section className="px-5 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <Link href="/my-programs">
-              <Card className="overflow-hidden border-0 bg-gradient-to-br from-primary to-primary/80 text-white cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardContent className="p-4">
-                  <Dumbbell className="h-8 w-8 mb-2 opacity-80" />
-                  <h3 className="font-bold mb-1">برنامه تمرینی</h3>
-                  <p className="text-xs text-white/70">مشاهده تمرینات</p>
-                </CardContent>
-              </Card>
-            </Link>
-            <Link href="/nutrition">
-              <Card className="overflow-hidden border-0 bg-gradient-to-br from-green-500 to-emerald-600 text-white cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardContent className="p-4">
-                  <Apple className="h-8 w-8 mb-2 opacity-80" />
-                  <h3 className="font-bold mb-1">برنامه تغذیه</h3>
-                  <p className="text-xs text-white/70">وعده‌های غذایی</p>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        </section>
-
-        {/* Quick Actions */}
-        <section className="px-5 py-4">
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
             <Link href="/coaches">
-              <Button variant="outline" className="rounded-full gap-2 whitespace-nowrap border-2">
-                <Users className="h-4 w-4" />
-                مربیان
-              </Button>
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-blue-500" />
+                </div>
+                <span className="text-[11px] font-medium">مربیان</span>
+              </div>
             </Link>
-            <Link href="/programs">
-              <Button variant="outline" className="rounded-full gap-2 whitespace-nowrap border-2">
-                <Dumbbell className="h-4 w-4" />
-                برنامه‌ها
-              </Button>
-            </Link>
-            <Link href="/challenges">
-              <Button variant="outline" className="rounded-full gap-2 whitespace-nowrap border-2">
-                <Zap className="h-4 w-4" />
-                چالش‌ها
-              </Button>
+            <Link href="/my-programs">
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
+                  <Dumbbell className="h-5 w-5 text-primary" />
+                </div>
+                <span className="text-[11px] font-medium">برنامه‌هام</span>
+              </div>
             </Link>
             <Link href="/store">
-              <Button variant="outline" className="rounded-full gap-2 whitespace-nowrap border-2">
-                <Target className="h-4 w-4" />
-                فروشگاه
-              </Button>
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                <div className="w-11 h-11 rounded-xl bg-purple-500/15 flex items-center justify-center">
+                  <ShoppingBag className="h-5 w-5 text-purple-500" />
+                </div>
+                <span className="text-[11px] font-medium">فروشگاه</span>
+              </div>
+            </Link>
+            <Link href="/messages">
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                <div className="w-11 h-11 rounded-xl bg-pink-500/15 flex items-center justify-center">
+                  <MessageCircle className="h-5 w-5 text-pink-500" />
+                </div>
+                <span className="text-[11px] font-medium">پیام‌ها</span>
+              </div>
+            </Link>
+            <Link href="/challenges">
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                <div className="w-11 h-11 rounded-xl bg-orange-500/15 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-orange-500" />
+                </div>
+                <span className="text-[11px] font-medium">چالش‌ها</span>
+              </div>
+            </Link>
+            <Link href="/leagues">
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                <div className="w-11 h-11 rounded-xl bg-yellow-500/15 flex items-center justify-center">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
+                </div>
+                <span className="text-[11px] font-medium">لیگ‌ها</span>
+              </div>
+            </Link>
+            <Link href="/education">
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                <div className="w-11 h-11 rounded-xl bg-cyan-500/15 flex items-center justify-center">
+                  <GraduationCap className="h-5 w-5 text-cyan-500" />
+                </div>
+                <span className="text-[11px] font-medium">انجمن</span>
+              </div>
+            </Link>
+            <Link href="/feed">
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                  <Newspaper className="h-5 w-5 text-emerald-500" />
+                </div>
+                <span className="text-[11px] font-medium">فید</span>
+              </div>
+            </Link>
+          </div>
+        </section>
+
+        {/* Secondary Quick Access */}
+        <section className="px-4 pb-4">
+          <div className="flex gap-2">
+            <Link href="/my-requests" className="flex-1">
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 active:scale-[0.98] transition-all">
+                <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-medium">درخواست‌هام</span>
+              </div>
+            </Link>
+            <Link href="/settings" className="flex-1">
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 active:scale-[0.98] transition-all">
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-medium">تنظیمات</span>
+              </div>
             </Link>
           </div>
         </section>
@@ -293,6 +353,8 @@ export default function HomePage() {
 
         {/* Bottom spacing for nav */}
         <div className="h-8" />
+          </div>
+        </PullToRefresh>
       </div>
     );
   }

@@ -17,24 +17,23 @@
     <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="apple-touch-startup-image" href="/favicon.png" />
     
-    <!-- Preconnect for faster font loading -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdn.fontcdn.ir" crossorigin>
-    
-    <!-- Inter font for English/Numbers -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
-    <!-- Vazirmatn - Primary Persian font from Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
     <title>Fit Line | بزرگترین پلتفرم فیتنس ایران</title>
     
     <style>
-      /* Vazirmatn as primary Persian font */
+      /* IRANYekan - Local Persian font */
+      @font-face {
+        font-family: 'IRANYekan';
+        src: url('/fonts/IRANYekanRegular(FaNum).woff2') format('woff2'),
+             url('/fonts/IRANYekanFaNum.woff') format('woff'),
+             url('/fonts/IRANYekanFaNum.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      
       :root {
-        --font-persian: 'Vazirmatn', system-ui, sans-serif;
-        --font-english: 'Inter', system-ui, sans-serif;
+        --font-persian: 'IRANYekan', system-ui, sans-serif;
+        --font-english: system-ui, sans-serif;
       }
       
       /* Native-like splash screen */
@@ -73,7 +72,7 @@
       }
       .splash-text {
         color: white;
-        font-family: 'Vazirmatn', sans-serif;
+        font-family: 'IRANYekan', system-ui, sans-serif;
         font-size: 24px;
         font-weight: 700;
         margin-bottom: 32px;

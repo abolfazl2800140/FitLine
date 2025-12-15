@@ -67,6 +67,9 @@ export interface IStorage {
   // Supplements
   getSupplements(filters?: { category?: string; search?: string }): Promise<Supplement[]>;
   getSupplement(id: string): Promise<Supplement | undefined>;
+  getSupplementReviews(supplementId: string): Promise<any[]>;
+  createSupplementReview(review: { supplementId: string; userId: string; rating: number; comment: string }): Promise<any>;
+  hasUserPurchasedSupplement(userId: string, supplementId: string): Promise<boolean>;
 
   // Cart
   getCartItems(userId: string): Promise<any[]>;
@@ -675,6 +678,64 @@ export class DbStorage implements IStorage {
   async getSupplement(id: string): Promise<Supplement | undefined> {
     const [result] = await db.select().from(supplements).where(eq(supplements.id, id)).limit(1);
     return result;
+  }
+
+  async getSupplementReviews(supplementId: string): Promise<any[]> {
+    const result = await db
+      .select({
+        id: supplementReviews.id,
+        rating: supplementReviews.rating,
+        comment: supplementReviews.comment,
+        createdAt: supplementReviews.createdAt,
+        user: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(supplementReviews)
+      .innerJoin(users, eq(supplementReviews.userId, users.id))
+      .where(eq(supplementReviews.supplementId, supplementId))
+      .orderBy(desc(supplementReviews.createdAt));
+    return result;
+  }
+
+  async createSupplementReview(review: { supplementId: string; userId: string; rating: number; comment: string }): Promise<any> {
+    const [result] = await db.insert(supplementReviews).values({
+      id: randomUUID(),
+      supplementId: review.supplementId,
+      userId: review.userId,
+      rating: review.rating,
+      comment: review.comment,
+    }).returning();
+
+    // Update supplement rating
+    const reviews = await this.getSupplementReviews(review.supplementId);
+    const avgRating = reviews.reduce((sum, r) => sum + Number(r.rating), 0) / reviews.length;
+    await db.update(supplements)
+      .set({ rating: avgRating.toFixed(1), reviewCount: reviews.length })
+      .where(eq(supplements.id, review.supplementId));
+
+    return result;
+  }
+
+  async hasUserPurchasedSupplement(userId: string, supplementId: string): Promise<boolean> {
+    // Check if user has any completed order containing this supplement
+    const userOrders = await db
+      .select()
+      .from(orders)
+      .where(and(
+        eq(orders.userId, userId),
+        eq(orders.status, 'completed')
+      ));
+
+    for (const order of userOrders) {
+      const items = order.items as { supplementId: string }[] | null;
+      if (items && items.some(item => item.supplementId === supplementId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Cart
@@ -1535,6 +1596,7 @@ export class DbStorage implements IStorage {
     status: 'accepted' | 'rejected',
     rejectionReason?: string
   ): Promise<CoachingRequest | undefined> {
+    // Only update if status is currently 'pending' to prevent race conditions
     const [result] = await db
       .update(coachingRequests)
       .set({
@@ -1542,7 +1604,7 @@ export class DbStorage implements IStorage {
         rejectionReason: rejectionReason || null,
         updatedAt: new Date(),
       })
-      .where(eq(coachingRequests.id, id))
+      .where(and(eq(coachingRequests.id, id), eq(coachingRequests.status, 'pending')))
       .returning();
 
     return result;

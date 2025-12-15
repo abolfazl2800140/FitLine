@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, toPersianNumber } from "@/lib/persian";
 import { useToast } from "@/hooks/use-toast";
-import { CoachingRequestModal } from "@/components/coaching-request-modal";
+
 import {
     ArrowRight,
     Star,
@@ -31,7 +31,7 @@ export default function CoachDetailPage() {
     const params = useParams<{ id: string }>();
     const [, setLocation] = useLocation();
     const [showAvatar, setShowAvatar] = useState(false);
-    const [showRequestModal, setShowRequestModal] = useState(false);
+
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
@@ -367,7 +367,7 @@ export default function CoachDetailPage() {
 
             {/* Fixed Bottom CTA */}
             <div
-                className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border/50 p-4"
+                className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-border/50 p-4"
                 style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
             >
                 <div className="flex items-center gap-4" dir="rtl">
@@ -380,20 +380,14 @@ export default function CoachDetailPage() {
                             </span>
                         </p>
                     </div>
-                    <Button size="lg" className="gap-2 px-8" onClick={() => setShowRequestModal(true)}>
+                    <Button size="lg" className="gap-2 px-8" onClick={() => setLocation(`/coaches/${params.id}/request`)}>
                         <Calendar className="h-5 w-5" />
                         درخواست برنامه
                     </Button>
                 </div>
             </div>
 
-            {/* Coaching Request Modal */}
-            <CoachingRequestModal
-                open={showRequestModal}
-                onOpenChange={setShowRequestModal}
-                coachId={coach.userId}
-                coachName={coach.user?.fullName || "مربی"}
-            />
+
 
             {/* Avatar Modal - Telegram Style */}
             {showAvatar && coach.user?.avatar && (

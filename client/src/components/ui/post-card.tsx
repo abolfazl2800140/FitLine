@@ -141,60 +141,53 @@ export function PostCard({
         )}
       </CardContent>
 
-      <CardFooter className="p-5 pt-3 flex items-center justify-between border-t border-border/30">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "gap-2 h-9 px-3 rounded-full press-effect",
-              liked && "text-red-500 bg-red-500/10"
-            )}
-            onClick={handleLike}
-            data-testid={`button-like-${id}`}
-          >
-            <Heart className={cn(
-              "h-5 w-5 transition-transform",
-              liked && "fill-current",
-              likeAnimating && "heart-beat"
-            )} />
-            <span className={cn("text-sm font-medium number-transition", likeAnimating && "animate-count")}>
-              {toPersianNumber(likes)}
-            </span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-2 h-9 px-3 rounded-full press-effect"
-            onClick={() => setLocation(`/post/${id}`)}
-            data-testid={`button-comment-${id}`}
-          >
-            <MessageCircle className="h-5 w-5" />
-            <span className="text-sm font-medium">{toPersianNumber(commentCount)}</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9 px-3 rounded-full press-effect"
-            onClick={onShare}
-            data-testid={`button-share-${id}`}
-          >
-            <Share2 className="h-5 w-5" />
-          </Button>
-        </div>
+      <CardFooter className="px-4 py-3 flex items-center justify-between">
         <Button
           variant="ghost"
           size="icon"
-          className={cn(
-            "h-9 w-9 rounded-full press-effect",
-            saved && "text-primary bg-primary/10"
-          )}
+          className="h-9 w-9 hover:bg-transparent"
           onClick={() => setSaved(!saved)}
           data-testid={`button-save-${id}`}
         >
-          <Bookmark className={cn("h-5 w-5 transition-transform", saved && "fill-current scale-110")} />
+          <Bookmark className={cn("h-[22px] w-[22px]", saved && "fill-current")} />
         </Button>
+
+        <div className="flex items-center gap-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 hover:bg-transparent"
+            onClick={onShare}
+            data-testid={`button-share-${id}`}
+          >
+            <Share2 className="h-[22px] w-[22px]" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 hover:bg-transparent"
+            onClick={() => setLocation(`/post/${id}`)}
+            data-testid={`button-comment-${id}`}
+          >
+            <MessageCircle className="h-[22px] w-[22px]" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-9 w-9 hover:bg-transparent", liked && "text-red-500")}
+            onClick={handleLike}
+            data-testid={`button-like-${id}`}
+          >
+            <Heart className={cn("h-[22px] w-[22px]", liked && "fill-current")} />
+          </Button>
+        </div>
       </CardFooter>
+
+      {/* Stats row */}
+      <div className="px-4 pb-3 flex items-center justify-end gap-4 text-sm text-muted-foreground">
+        <span>{toPersianNumber(likes)} پسند</span>
+        <span>{toPersianNumber(commentCount)} پاسخ</span>
+      </div>
 
     </Card>
   );

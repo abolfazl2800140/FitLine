@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import { lazy, Suspense } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,74 +8,89 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { Layout } from "@/components/layout/Layout";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { WebSocketProvider } from "@/components/providers/WebSocketProvider";
-import NotFound from "@/pages/not-found";
-import HomePage from "@/pages/home";
-import CoachesPage from "@/pages/coaches";
-import CoachDetailPage from "@/pages/coach-detail";
-import FeedPage from "@/pages/feed";
-import ProgramsPage from "@/pages/programs";
-import StorePage from "@/pages/store";
-import MessagesPage from "@/pages/messages";
-import LeaguesPage from "@/pages/leagues";
-import ChallengesPage from "@/pages/challenges";
-import EducationPage from "@/pages/education";
-import AskQuestionPage from "@/pages/ask-question";
-import QuestionDetailPage from "@/pages/question-detail";
-import UserProfilePage from "@/pages/user-profile";
-import ProfilePage from "@/pages/profile";
-import SettingsPage from "@/pages/settings";
-import AuthPage from "@/pages/auth";
-import DesignSystemPage from "@/pages/design-system";
-import ProgramBuilderPage from "@/pages/coach/program-builder";
-import NutritionBuilderPage from "@/pages/coach/nutrition-builder";
-import CoachHomePage from "@/pages/coach/home";
-import CoachStudentsPage from "@/pages/coach/students";
-import CoachRequestsPage from "@/pages/coach/requests";
-import MyRequestsPage from "@/pages/my-requests";
-import MyProgramsPage from "@/pages/my-programs";
-import ProgramDetailPage from "@/pages/program-detail";
-import LeaderboardPage from "@/pages/leaderboard";
-import NutritionPage from "@/pages/nutrition";
-import PostDetailPage from "@/pages/post-detail";
+
+// Lazy load all pages
+const NotFound = lazy(() => import("@/pages/not-found"));
+const HomePage = lazy(() => import("@/pages/home"));
+const CoachesPage = lazy(() => import("@/pages/coaches"));
+const CoachDetailPage = lazy(() => import("@/pages/coach-detail"));
+const FeedPage = lazy(() => import("@/pages/feed"));
+const ProgramsPage = lazy(() => import("@/pages/programs"));
+const StorePage = lazy(() => import("@/pages/store"));
+const MessagesPage = lazy(() => import("@/pages/messages"));
+const LeaguesPage = lazy(() => import("@/pages/leagues"));
+const ChallengesPage = lazy(() => import("@/pages/challenges"));
+const EducationPage = lazy(() => import("@/pages/education"));
+const AskQuestionPage = lazy(() => import("@/pages/ask-question"));
+const QuestionDetailPage = lazy(() => import("@/pages/question-detail"));
+const UserProfilePage = lazy(() => import("@/pages/user-profile"));
+const ProfilePage = lazy(() => import("@/pages/profile"));
+const SettingsPage = lazy(() => import("@/pages/settings"));
+const AuthPage = lazy(() => import("@/pages/auth"));
+const DesignSystemPage = lazy(() => import("@/pages/design-system"));
+const ProgramBuilderPage = lazy(() => import("@/pages/coach/program-builder"));
+const NutritionBuilderPage = lazy(() => import("@/pages/coach/nutrition-builder"));
+const CoachHomePage = lazy(() => import("@/pages/coach/home"));
+const CoachStudentsPage = lazy(() => import("@/pages/coach/students"));
+const CoachRequestsPage = lazy(() => import("@/pages/coach/requests"));
+const MyRequestsPage = lazy(() => import("@/pages/my-requests"));
+const MyProgramsPage = lazy(() => import("@/pages/my-programs"));
+const ProgramDetailPage = lazy(() => import("@/pages/program-detail"));
+const LeaderboardPage = lazy(() => import("@/pages/leaderboard"));
+const NutritionPage = lazy(() => import("@/pages/nutrition"));
+const PostDetailPage = lazy(() => import("@/pages/post-detail"));
+const CoachingRequestPage = lazy(() => import("@/pages/coaching-request"));
+const SupplementDetailPage = lazy(() => import("@/pages/supplement-detail"));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={HomePage} />
-      <Route path="/coaches" component={CoachesPage} />
-      <Route path="/coaches/:id" component={CoachDetailPage} />
-      <Route path="/feed" component={FeedPage} />
-      <Route path="/post/:id" component={PostDetailPage} />
-      <Route path="/programs" component={ProgramsPage} />
-      <Route path="/programs/:id" component={ProgramsPage} />
-      <Route path="/store" component={StorePage} />
-      <Route path="/store/:id" component={StorePage} />
-      <Route path="/messages" component={MessagesPage} />
-      <Route path="/leagues" component={LeaguesPage} />
-      <Route path="/challenges" component={ChallengesPage} />
-      <Route path="/education" component={EducationPage} />
-      <Route path="/education/ask" component={AskQuestionPage} />
-      <Route path="/education/:id" component={QuestionDetailPage} />
-      <Route path="/user/:id" component={UserProfilePage} />
-      <Route path="/profile" component={ProfilePage} />
-      <Route path="/settings" component={SettingsPage} />
-      <Route path="/auth" component={AuthPage} />
-      <Route path="/login" component={AuthPage} />
-      <Route path="/register" component={AuthPage} />
-      <Route path="/design-system" component={DesignSystemPage} />
-      <Route path="/coach/program-builder" component={ProgramBuilderPage} />
-      <Route path="/coach/nutrition-builder" component={NutritionBuilderPage} />
-      <Route path="/coach/home" component={CoachHomePage} />
-      <Route path="/coach/students" component={CoachStudentsPage} />
-      <Route path="/coach/requests" component={CoachRequestsPage} />
-      <Route path="/coach" component={CoachHomePage} />
-      <Route path="/nutrition" component={NutritionPage} />
-      <Route path="/my-requests" component={MyRequestsPage} />
-      <Route path="/my-programs" component={MyProgramsPage} />
-      <Route path="/program/:id" component={ProgramDetailPage} />
-      <Route path="/leaderboard" component={LeaderboardPage} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<PageLoader />}>
+      <Switch>
+        <Route path="/" component={HomePage} />
+        <Route path="/coaches" component={CoachesPage} />
+        <Route path="/coaches/:id" component={CoachDetailPage} />
+        <Route path="/coaches/:id/request" component={CoachingRequestPage} />
+        <Route path="/feed" component={FeedPage} />
+        <Route path="/post/:id" component={PostDetailPage} />
+        <Route path="/programs" component={ProgramsPage} />
+        <Route path="/programs/:id" component={ProgramsPage} />
+        <Route path="/store" component={StorePage} />
+        <Route path="/supplement/:id" component={SupplementDetailPage} />
+        <Route path="/messages" component={MessagesPage} />
+        <Route path="/leagues" component={LeaguesPage} />
+        <Route path="/challenges" component={ChallengesPage} />
+        <Route path="/education" component={EducationPage} />
+        <Route path="/education/ask" component={AskQuestionPage} />
+        <Route path="/education/:id" component={QuestionDetailPage} />
+        <Route path="/user/:id" component={UserProfilePage} />
+        <Route path="/profile" component={ProfilePage} />
+        <Route path="/settings" component={SettingsPage} />
+        <Route path="/auth" component={AuthPage} />
+        <Route path="/login" component={AuthPage} />
+        <Route path="/register" component={AuthPage} />
+        <Route path="/design-system" component={DesignSystemPage} />
+        <Route path="/coach/program-builder" component={ProgramBuilderPage} />
+        <Route path="/coach/nutrition-builder" component={NutritionBuilderPage} />
+        <Route path="/coach/home" component={CoachHomePage} />
+        <Route path="/coach/students" component={CoachStudentsPage} />
+        <Route path="/coach/requests" component={CoachRequestsPage} />
+        <Route path="/coach" component={CoachHomePage} />
+        <Route path="/nutrition" component={NutritionPage} />
+        <Route path="/my-requests" component={MyRequestsPage} />
+        <Route path="/my-programs" component={MyProgramsPage} />
+        <Route path="/program/:id" component={ProgramDetailPage} />
+        <Route path="/leaderboard" component={LeaderboardPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 
