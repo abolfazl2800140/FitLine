@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toPersianNumber } from "@/lib/persian";
 import {
   Select,
   SelectContent,
@@ -49,6 +50,12 @@ export default function CoachesPage() {
   const { data: coaches, isLoading } = useQuery<any[]>({
     queryKey: ["/api/coaches"],
   });
+
+  const { data: currentUser } = useQuery<any>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  const isCoach = currentUser?.role === "coach";
 
   const activeFiltersCount = [
     specialty !== "all",
@@ -247,6 +254,14 @@ export default function CoachesPage() {
           </div>
         )}
 
+        {/* Page Title for Coaches */}
+        {isCoach && (
+          <div className="mb-4">
+            <h1 className="text-xl font-bold">همکاران</h1>
+            <p className="text-sm text-muted-foreground">مربیان دیگر پلتفرم</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {isLoading ? (
             Array.from({ length: 8 }).map((_, i) => (
@@ -266,12 +281,13 @@ export default function CoachesPage() {
                 reviewCount={coach.reviewCount || 0}
                 clientCount={coach.clientCount || 0}
                 isVerified={coach.isVerified}
+                hideBookButton={isCoach}
               />
             ))
           ) : (
             <div className="col-span-full text-center py-16">
               <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">مربی‌ای یافت نشد</h3>
+              <h3 className="text-xl font-semibold mb-2">{isCoach ? "همکاری یافت نشد" : "مربی‌ای یافت نشد"}</h3>
               <p className="text-muted-foreground mb-4">
                 با تغییر فیلترها دوباره جستجو کنید
               </p>

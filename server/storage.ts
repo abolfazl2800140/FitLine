@@ -1,14 +1,16 @@
 import { db } from "./db";
-import { eq, desc, and, or, sql, like, ilike, gte, lte, isNull } from "drizzle-orm";
+import { eq, desc, and, or, sql, like, ilike, gte, lte, isNull, not } from "drizzle-orm";
 import {
   users, coachProfiles, programs, workoutDays, exercises, userPrograms, workoutLogs,
-  posts, comments, likes, follows, conversations, messages,
+  posts, comments, likes, follows, conversations, messages, messageReactions,
   supplements, cartItems, orders, challenges, challengeParticipants,
   leagues, leagueMembers, badges, userBadges, progressPhotos, progressMetrics,
   reviews, supplementReviews, questions, answers, coachLikes,
   questionVotes, answerVotes, coachingRequests,
   // Nutrition tables
   nutritionPlans, meals, mealItems, mealLogs, pushSubscriptions, mealReminders,
+  // Education tables
+  exerciseTutorials, articles, exerciseTutorialLikes, articleLikes,
   type User, type InsertUser, type CoachProfile, type InsertCoachProfile,
   type Program, type InsertProgram, type Post, type InsertPost,
   type Supplement, type InsertSupplement, type Challenge, type InsertChallenge,
@@ -17,6 +19,7 @@ import {
   type ChallengeParticipant, type InsertChallengeParticipant,
   type CoachLike, type CoachingRequest, type InsertCoachingRequest,
   type NutritionPlan, type Meal, type MealItem, type MealLog, type PushSubscription, type MealReminder,
+  type ExerciseTutorial, type InsertExerciseTutorial, type Article, type InsertArticle,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { awardPoints } from "./points";
@@ -93,6 +96,12 @@ export interface IStorage {
   getMessages(conversationId: string): Promise<Message[]>;
   sendMessage(message: InsertMessage): Promise<Message>;
   createConversation(data: InsertConversation): Promise<Conversation>;
+  editMessage(messageId: string, userId: string, newContent: string): Promise<Message | null>;
+  deleteMessage(messageId: string, userId: string): Promise<boolean>;
+  addReaction(messageId: string, userId: string, emoji: string): Promise<any>;
+  removeReaction(messageId: string, userId: string, emoji: string): Promise<boolean>;
+  getMessageReactions(messageId: string): Promise<any[]>;
+  markMessagesAsRead(conversationId: string, userId: string): Promise<void>;
 
   // Questions
   getQuestions(filters?: { category?: string }): Promise<any[]>;
@@ -135,6 +144,20 @@ export interface IStorage {
   }): Promise<any>;
   getUserProgramsWithDetails(userId: string): Promise<any[]>;
   getProgramWithWorkouts(programId: string): Promise<any | undefined>;
+
+  // Education - Tutorials
+  getExerciseTutorials(muscleGroup?: string, difficulty?: string): Promise<any[]>;
+  getExerciseTutorial(id: string): Promise<any | undefined>;
+  createExerciseTutorial(data: any): Promise<any>;
+  incrementTutorialViews(id: string): Promise<void>;
+  toggleTutorialLike(tutorialId: string, userId: string): Promise<{ liked: boolean; likeCount: number }>;
+
+  // Education - Articles
+  getArticles(category?: string): Promise<any[]>;
+  getArticle(id: string): Promise<any | undefined>;
+  createArticle(data: any): Promise<any>;
+  incrementArticleViews(id: string): Promise<void>;
+  toggleArticleLike(articleId: string, userId: string): Promise<{ liked: boolean; likeCount: number }>;
 }
 
 export class DbStorage implements IStorage {
@@ -971,6 +994,101 @@ export class DbStorage implements IStorage {
     return result;
   }
 
+  async editMessage(messageId: string, userId: string, newContent: string): Promise<any> {
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.id, messageId), eq(messages.senderId, userId)))
+      .limit(1);
+
+    if (!message) return null;
+
+    const [updated] = await db
+      .update(messages)
+      .set({ content: newContent, isEdited: true, editedAt: new Date() })
+      .where(eq(messages.id, messageId))
+      .returning();
+
+    return updated;
+  }
+
+  async deleteMessage(messageId: string, userId: string): Promise<boolean> {
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.id, messageId), eq(messages.senderId, userId)))
+      .limit(1);
+
+    if (!message) return false;
+
+    // Delete reactions first
+    await db.delete(messageReactions).where(eq(messageReactions.messageId, messageId));
+    
+    // Delete the message completely (like Telegram)
+    await db.delete(messages).where(eq(messages.id, messageId));
+
+    return true;
+  }
+
+  async addReaction(messageId: string, userId: string, emoji: string): Promise<any> {
+    const [existing] = await db
+      .select()
+      .from(messageReactions)
+      .where(and(
+        eq(messageReactions.messageId, messageId),
+        eq(messageReactions.userId, userId),
+        eq(messageReactions.emoji, emoji)
+      ))
+      .limit(1);
+
+    if (existing) return existing;
+
+    const [result] = await db
+      .insert(messageReactions)
+      .values({ messageId, userId, emoji })
+      .returning();
+
+    return result;
+  }
+
+  async removeReaction(messageId: string, userId: string, emoji: string): Promise<boolean> {
+    const result = await db
+      .delete(messageReactions)
+      .where(and(
+        eq(messageReactions.messageId, messageId),
+        eq(messageReactions.userId, userId),
+        eq(messageReactions.emoji, emoji)
+      ));
+
+    return true;
+  }
+
+  async getMessageReactions(messageId: string): Promise<any[]> {
+    const result = await db
+      .select({
+        id: messageReactions.id,
+        emoji: messageReactions.emoji,
+        userId: messageReactions.userId,
+        userName: users.fullName,
+      })
+      .from(messageReactions)
+      .leftJoin(users, eq(messageReactions.userId, users.id))
+      .where(eq(messageReactions.messageId, messageId));
+
+    return result;
+  }
+
+  async markMessagesAsRead(conversationId: string, userId: string): Promise<void> {
+    await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(and(
+        eq(messages.conversationId, conversationId),
+        not(eq(messages.senderId, userId)),
+        eq(messages.isRead, false)
+      ));
+  }
+
   // Questions
   async getQuestions(filters?: { category?: string }): Promise<any[]> {
     const result = await db
@@ -1254,6 +1372,9 @@ export class DbStorage implements IStorage {
     completionRate: number;
     rating: string;
     reviewCount: number;
+    newStudentsThisMonth: number;
+    programsCreatedThisMonth: number;
+    messagesReceivedThisMonth: number;
   }> {
     // Get coach profile
     const [coachProfile] = await db
@@ -1322,6 +1443,42 @@ export class DbStorage implements IStorage {
       ? Math.round((completionResult.completed / completionResult.total) * 100)
       : 0;
 
+    // Count new students this month (from coaching requests accepted this month)
+    const [newStudentsResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(coachingRequests)
+      .where(
+        and(
+          eq(coachingRequests.coachId, userId),
+          eq(coachingRequests.status, 'accepted'),
+          sql`${coachingRequests.updatedAt} >= ${startOfMonth}`
+        )
+      );
+
+    // Count programs created this month
+    const [programsCreatedResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(programs)
+      .where(
+        and(
+          eq(programs.coachId, userId),
+          sql`${programs.createdAt} >= ${startOfMonth}`
+        )
+      );
+
+    // Count messages received this month
+    const [messagesReceivedResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(
+        and(
+          sql`(${conversations.participant1Id} = ${userId} OR ${conversations.participant2Id} = ${userId})`,
+          sql`${messages.senderId} != ${userId}`,
+          sql`${messages.createdAt} >= ${startOfMonth}`
+        )
+      );
+
     return {
       activeStudents: activeStudentsResult?.count || 0,
       pendingRequests: pendingRequestsResult?.count || 0,
@@ -1329,6 +1486,9 @@ export class DbStorage implements IStorage {
       completionRate,
       rating: coachProfile.rating || "0.0",
       reviewCount: coachProfile.reviewCount || 0,
+      newStudentsThisMonth: newStudentsResult?.count || 0,
+      programsCreatedThisMonth: programsCreatedResult?.count || 0,
+      messagesReceivedThisMonth: messagesReceivedResult?.count || 0,
     };
   }
 
@@ -2137,6 +2297,238 @@ export class DbStorage implements IStorage {
       .orderBy(desc(nutritionPlans.createdAt));
 
     return plans;
+  }
+
+  // ==================== EDUCATION - TUTORIALS ====================
+
+  async getExerciseTutorials(muscleGroup?: string, difficulty?: string): Promise<any[]> {
+    let query = db
+      .select({
+        id: exerciseTutorials.id,
+        name: exerciseTutorials.name,
+        description: exerciseTutorials.description,
+        muscleGroup: exerciseTutorials.muscleGroup,
+        difficulty: exerciseTutorials.difficulty,
+        thumbnailUrl: exerciseTutorials.thumbnailUrl,
+        likeCount: exerciseTutorials.likeCount,
+        viewCount: exerciseTutorials.viewCount,
+        createdAt: exerciseTutorials.createdAt,
+        coach: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(exerciseTutorials)
+      .innerJoin(users, eq(exerciseTutorials.coachId, users.id));
+
+    const conditions = [];
+    if (muscleGroup) {
+      conditions.push(eq(exerciseTutorials.muscleGroup, muscleGroup as any));
+    }
+    if (difficulty) {
+      conditions.push(eq(exerciseTutorials.difficulty, difficulty as any));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    return await query.orderBy(desc(exerciseTutorials.createdAt));
+  }
+
+  async getExerciseTutorial(id: string): Promise<any | undefined> {
+    const [tutorial] = await db
+      .select({
+        id: exerciseTutorials.id,
+        name: exerciseTutorials.name,
+        description: exerciseTutorials.description,
+        muscleGroup: exerciseTutorials.muscleGroup,
+        secondaryMuscles: exerciseTutorials.secondaryMuscles,
+        difficulty: exerciseTutorials.difficulty,
+        videoUrl: exerciseTutorials.videoUrl,
+        thumbnailUrl: exerciseTutorials.thumbnailUrl,
+        instructions: exerciseTutorials.instructions,
+        tips: exerciseTutorials.tips,
+        commonMistakes: exerciseTutorials.commonMistakes,
+        likeCount: exerciseTutorials.likeCount,
+        viewCount: exerciseTutorials.viewCount,
+        createdAt: exerciseTutorials.createdAt,
+        coach: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(exerciseTutorials)
+      .innerJoin(users, eq(exerciseTutorials.coachId, users.id))
+      .where(eq(exerciseTutorials.id, id))
+      .limit(1);
+
+    return tutorial;
+  }
+
+  async createExerciseTutorial(data: InsertExerciseTutorial): Promise<ExerciseTutorial> {
+    const [tutorial] = await db.insert(exerciseTutorials).values(data).returning();
+    return tutorial;
+  }
+
+  async incrementTutorialViews(id: string): Promise<void> {
+    await db
+      .update(exerciseTutorials)
+      .set({ viewCount: sql`${exerciseTutorials.viewCount} + 1` })
+      .where(eq(exerciseTutorials.id, id));
+  }
+
+  async toggleTutorialLike(tutorialId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
+    const [existing] = await db
+      .select()
+      .from(exerciseTutorialLikes)
+      .where(and(
+        eq(exerciseTutorialLikes.tutorialId, tutorialId),
+        eq(exerciseTutorialLikes.userId, userId)
+      ))
+      .limit(1);
+
+    if (existing) {
+      await db.delete(exerciseTutorialLikes).where(eq(exerciseTutorialLikes.id, existing.id));
+      await db
+        .update(exerciseTutorials)
+        .set({ likeCount: sql`${exerciseTutorials.likeCount} - 1` })
+        .where(eq(exerciseTutorials.id, tutorialId));
+    } else {
+      await db.insert(exerciseTutorialLikes).values({ tutorialId, userId });
+      await db
+        .update(exerciseTutorials)
+        .set({ likeCount: sql`${exerciseTutorials.likeCount} + 1` })
+        .where(eq(exerciseTutorials.id, tutorialId));
+    }
+
+    const [tutorial] = await db
+      .select({ likeCount: exerciseTutorials.likeCount })
+      .from(exerciseTutorials)
+      .where(eq(exerciseTutorials.id, tutorialId))
+      .limit(1);
+
+    return { liked: !existing, likeCount: tutorial?.likeCount || 0 };
+  }
+
+  // ==================== EDUCATION - ARTICLES ====================
+
+  async getArticles(category?: string): Promise<any[]> {
+    let query = db
+      .select({
+        id: articles.id,
+        title: articles.title,
+        slug: articles.slug,
+        excerpt: articles.excerpt,
+        coverImage: articles.coverImage,
+        category: articles.category,
+        readingTime: articles.readingTime,
+        likeCount: articles.likeCount,
+        viewCount: articles.viewCount,
+        createdAt: articles.createdAt,
+        author: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(articles)
+      .innerJoin(users, eq(articles.authorId, users.id))
+      .where(eq(articles.isPublished, true));
+
+    if (category) {
+      query = query.where(and(
+        eq(articles.isPublished, true),
+        eq(articles.category, category as any)
+      )) as any;
+    }
+
+    return await query.orderBy(desc(articles.createdAt));
+  }
+
+  async getArticle(id: string): Promise<any | undefined> {
+    const [article] = await db
+      .select({
+        id: articles.id,
+        title: articles.title,
+        slug: articles.slug,
+        content: articles.content,
+        excerpt: articles.excerpt,
+        coverImage: articles.coverImage,
+        category: articles.category,
+        readingTime: articles.readingTime,
+        likeCount: articles.likeCount,
+        viewCount: articles.viewCount,
+        createdAt: articles.createdAt,
+        updatedAt: articles.updatedAt,
+        author: {
+          id: users.id,
+          fullName: users.fullName,
+          avatar: users.avatar,
+        },
+      })
+      .from(articles)
+      .innerJoin(users, eq(articles.authorId, users.id))
+      .where(eq(articles.id, id))
+      .limit(1);
+
+    return article;
+  }
+
+  async createArticle(data: InsertArticle): Promise<Article> {
+    const [article] = await db.insert(articles).values(data).returning();
+    return article;
+  }
+
+  async incrementArticleViews(id: string): Promise<void> {
+    await db
+      .update(articles)
+      .set({ viewCount: sql`${articles.viewCount} + 1` })
+      .where(eq(articles.id, id));
+  }
+
+  async toggleArticleLike(articleId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
+    const [existing] = await db
+      .select()
+      .from(articleLikes)
+      .where(and(
+        eq(articleLikes.articleId, articleId),
+        eq(articleLikes.userId, userId)
+      ))
+      .limit(1);
+
+    if (existing) {
+      await db.delete(articleLikes).where(eq(articleLikes.id, existing.id));
+      await db
+        .update(articles)
+        .set({ likeCount: sql`${articles.likeCount} - 1` })
+        .where(eq(articles.id, articleId));
+    } else {
+      await db.insert(articleLikes).values({ articleId, userId });
+      await db
+        .update(articles)
+        .set({ likeCount: sql`${articles.likeCount} + 1` })
+        .where(eq(articles.id, articleId));
+    }
+
+    const [article] = await db
+      .select({ likeCount: articles.likeCount })
+      .from(articles)
+      .where(eq(articles.id, articleId))
+      .limit(1);
+
+    return { liked: !existing, likeCount: article?.likeCount || 0 };
+  }
+
+  async getCoachProfile(userId: string): Promise<CoachProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(coachProfiles)
+      .where(eq(coachProfiles.userId, userId))
+      .limit(1);
+    return profile;
   }
 }
 

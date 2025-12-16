@@ -148,13 +148,30 @@ export const conversations = pgTable("conversations", {
   lastMessage: text("last_message"),
 });
 
+export const messageTypeEnum = pgEnum('message_type', ['text', 'voice', 'image', 'file']);
+
 export const messages = pgTable("messages", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   conversationId: varchar("conversation_id", { length: 36 }).notNull().references(() => conversations.id),
   senderId: varchar("sender_id", { length: 36 }).notNull().references(() => users.id),
   content: text("content").notNull(),
+  messageType: messageTypeEnum("message_type").default('text').notNull(),
+  voiceUrl: text("voice_url"),
+  voiceDuration: integer("voice_duration"), // duration in seconds
   replyToId: varchar("reply_to_id", { length: 36 }).references((): any => messages.id),
   isRead: boolean("is_read").default(false),
+  isEdited: boolean("is_edited").default(false),
+  isDeleted: boolean("is_deleted").default(false),
+  editedAt: timestamp("edited_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Message reactions (emoji reactions)
+export const messageReactions = pgTable("message_reactions", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id", { length: 36 }).notNull().references(() => messages.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  emoji: text("emoji").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -450,6 +467,8 @@ export const coachingRequestsRelations = relations(coachingRequests, ({ one }) =
 // ==================== NUTRITION PLAN SYSTEM ====================
 
 export const mealTypeEnum = pgEnum('meal_type', ['breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner', 'evening_snack']);
+export const muscleGroupEnum = pgEnum('muscle_group', ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'glutes', 'abs', 'cardio', 'full_body']);
+export const articleCategoryEnum = pgEnum('article_category', ['nutrition', 'training', 'recovery', 'motivation', 'supplements', 'lifestyle']);
 
 // برنامه تغذیه اصلی
 export const nutritionPlans = pgTable("nutrition_plans", {
@@ -528,6 +547,82 @@ export const mealReminders = pgTable("meal_reminders", {
   lastSentAt: timestamp("last_sent_at"),
 });
 
+// ==================== EDUCATION SYSTEM ====================
+
+// آموزش حرکات
+export const exerciseTutorials = pgTable("exercise_tutorials", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id", { length: 36 }).notNull().references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  muscleGroup: muscleGroupEnum("muscle_group").notNull(),
+  secondaryMuscles: jsonb("secondary_muscles").$type<string[]>().default([]),
+  difficulty: difficultyEnum("difficulty").default('beginner'),
+  videoUrl: text("video_url"),
+  thumbnailUrl: text("thumbnail_url"),
+  instructions: jsonb("instructions").$type<string[]>().default([]),
+  tips: jsonb("tips").$type<string[]>().default([]),
+  commonMistakes: jsonb("common_mistakes").$type<string[]>().default([]),
+  likeCount: integer("like_count").default(0),
+  viewCount: integer("view_count").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// مقالات
+export const articles = pgTable("articles", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  authorId: varchar("author_id", { length: 36 }).notNull().references(() => users.id),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  content: text("content").notNull(),
+  excerpt: text("excerpt"),
+  coverImage: text("cover_image"),
+  category: articleCategoryEnum("category").notNull(),
+  readingTime: integer("reading_time").default(5), // دقیقه
+  likeCount: integer("like_count").default(0),
+  viewCount: integer("view_count").default(0),
+  isPublished: boolean("is_published").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// لایک آموزش حرکات
+export const exerciseTutorialLikes = pgTable("exercise_tutorial_likes", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  tutorialId: varchar("tutorial_id", { length: 36 }).notNull().references(() => exerciseTutorials.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// لایک مقالات
+export const articleLikes = pgTable("article_likes", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  articleId: varchar("article_id", { length: 36 }).notNull().references(() => articles.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations for education
+export const exerciseTutorialsRelations = relations(exerciseTutorials, ({ one, many }) => ({
+  coach: one(users, { fields: [exerciseTutorials.coachId], references: [users.id] }),
+  likes: many(exerciseTutorialLikes),
+}));
+
+export const articlesRelations = relations(articles, ({ one, many }) => ({
+  author: one(users, { fields: [articles.authorId], references: [users.id] }),
+  likes: many(articleLikes),
+}));
+
+export const exerciseTutorialLikesRelations = relations(exerciseTutorialLikes, ({ one }) => ({
+  tutorial: one(exerciseTutorials, { fields: [exerciseTutorialLikes.tutorialId], references: [exerciseTutorials.id] }),
+  user: one(users, { fields: [exerciseTutorialLikes.userId], references: [users.id] }),
+}));
+
+export const articleLikesRelations = relations(articleLikes, ({ one }) => ({
+  article: one(articles, { fields: [articleLikes.articleId], references: [articles.id] }),
+  user: one(users, { fields: [articleLikes.userId], references: [users.id] }),
+}));
+
 // Relations for nutrition
 export const nutritionPlansRelations = relations(nutritionPlans, ({ one, many }) => ({
   coach: one(users, { fields: [nutritionPlans.coachId], references: [users.id], relationName: "nutritionCoach" }),
@@ -577,7 +672,7 @@ export const insertLikeSchema = createInsertSchema(likes).omit({ id: true, creat
 export const insertCoachLikeSchema = createInsertSchema(coachLikes).omit({ id: true, createdAt: true });
 export const insertFollowSchema = createInsertSchema(follows).omit({ id: true, createdAt: true });
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, lastMessageAt: true, lastMessage: true });
-export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, isRead: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, isRead: true, isEdited: true, isDeleted: true, editedAt: true });
 export const insertSupplementSchema = createInsertSchema(supplements).omit({ id: true });
 export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
@@ -604,6 +699,12 @@ export const insertMealItemSchema = createInsertSchema(mealItems).omit({ id: tru
 export const insertMealLogSchema = createInsertSchema(mealLogs).omit({ id: true, completedAt: true });
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
 export const insertMealReminderSchema = createInsertSchema(mealReminders).omit({ id: true, lastSentAt: true });
+
+// Education schemas
+export const insertExerciseTutorialSchema = createInsertSchema(exerciseTutorials).omit({ id: true, createdAt: true, likeCount: true, viewCount: true });
+export const insertArticleSchema = createInsertSchema(articles).omit({ id: true, createdAt: true, updatedAt: true, likeCount: true, viewCount: true });
+export const insertExerciseTutorialLikeSchema = createInsertSchema(exerciseTutorialLikes).omit({ id: true, createdAt: true });
+export const insertArticleLikeSchema = createInsertSchema(articleLikes).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -680,3 +781,13 @@ export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertMealReminder = z.infer<typeof insertMealReminderSchema>;
 export type MealReminder = typeof mealReminders.$inferSelect;
+
+// Education types
+export type InsertExerciseTutorial = z.infer<typeof insertExerciseTutorialSchema>;
+export type ExerciseTutorial = typeof exerciseTutorials.$inferSelect;
+export type InsertArticle = z.infer<typeof insertArticleSchema>;
+export type Article = typeof articles.$inferSelect;
+export type InsertExerciseTutorialLike = z.infer<typeof insertExerciseTutorialLikeSchema>;
+export type ExerciseTutorialLike = typeof exerciseTutorialLikes.$inferSelect;
+export type InsertArticleLike = z.infer<typeof insertArticleLikeSchema>;
+export type ArticleLike = typeof articleLikes.$inferSelect;

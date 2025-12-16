@@ -33,6 +33,7 @@ const NutritionBuilderPage = lazy(() => import("@/pages/coach/nutrition-builder"
 const CoachHomePage = lazy(() => import("@/pages/coach/home"));
 const CoachStudentsPage = lazy(() => import("@/pages/coach/students"));
 const CoachRequestsPage = lazy(() => import("@/pages/coach/requests"));
+const CoachDashboardPage = lazy(() => import("@/pages/coach/dashboard"));
 const MyRequestsPage = lazy(() => import("@/pages/my-requests"));
 const MyProgramsPage = lazy(() => import("@/pages/my-programs"));
 const ProgramDetailPage = lazy(() => import("@/pages/program-detail"));
@@ -41,6 +42,10 @@ const NutritionPage = lazy(() => import("@/pages/nutrition"));
 const PostDetailPage = lazy(() => import("@/pages/post-detail"));
 const CoachingRequestPage = lazy(() => import("@/pages/coaching-request"));
 const SupplementDetailPage = lazy(() => import("@/pages/supplement-detail"));
+const LearnPage = lazy(() => import("@/pages/learn"));
+const TutorialDetailPage = lazy(() => import("@/pages/tutorial-detail"));
+const ArticleDetailPage = lazy(() => import("@/pages/article-detail"));
+const NewArticlePage = lazy(() => import("@/pages/new-article"));
 
 function PageLoader() {
   return (
@@ -82,12 +87,17 @@ function Router() {
         <Route path="/coach/home" component={CoachHomePage} />
         <Route path="/coach/students" component={CoachStudentsPage} />
         <Route path="/coach/requests" component={CoachRequestsPage} />
+        <Route path="/coach/dashboard" component={CoachDashboardPage} />
         <Route path="/coach" component={CoachHomePage} />
         <Route path="/nutrition" component={NutritionPage} />
         <Route path="/my-requests" component={MyRequestsPage} />
         <Route path="/my-programs" component={MyProgramsPage} />
         <Route path="/program/:id" component={ProgramDetailPage} />
         <Route path="/leaderboard" component={LeaderboardPage} />
+        <Route path="/learn" component={LearnPage} />
+        <Route path="/learn/new-article" component={NewArticlePage} />
+        <Route path="/learn/tutorial/:id" component={TutorialDetailPage} />
+        <Route path="/learn/article/:id" component={ArticleDetailPage} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

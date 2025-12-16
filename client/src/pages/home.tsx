@@ -61,10 +61,18 @@ export default function HomePage() {
     enabled: !!user,
   });
 
-  // If user is a coach, show coach dashboard
-  if (user?.role === "coach") {
-    return <CoachHomePage />;
-  }
+  // Coach-specific stats
+  const { data: coachStats } = useQuery<any>({
+    queryKey: ["/api/coach/stats"],
+    enabled: !!user && user.role === "coach",
+  });
+
+  const { data: pendingCountData } = useQuery<{ count: number }>({
+    queryKey: ["/api/coach/requests/pending-count"],
+    enabled: !!user && user.role === "coach",
+  });
+
+  const isCoach = user?.role === "coach";
 
   // Refresh function for pull-to-refresh
   const handleRefresh = async () => {
@@ -137,88 +145,185 @@ export default function HomePage() {
         <section className="px-4 py-4">
           <h3 className="text-sm font-bold text-muted-foreground mb-3">دسترسی سریع</h3>
           <div className="grid grid-cols-4 gap-3">
-            <Link href="/coaches">
-              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
-                <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-blue-500" />
-                </div>
-                <span className="text-[11px] font-medium">مربیان</span>
-              </div>
-            </Link>
-            <Link href="/my-programs">
-              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
-                <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
-                  <Dumbbell className="h-5 w-5 text-primary" />
-                </div>
-                <span className="text-[11px] font-medium">برنامه‌هام</span>
-              </div>
-            </Link>
-            <Link href="/store">
-              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
-                <div className="w-11 h-11 rounded-xl bg-purple-500/15 flex items-center justify-center">
-                  <ShoppingBag className="h-5 w-5 text-purple-500" />
-                </div>
-                <span className="text-[11px] font-medium">فروشگاه</span>
-              </div>
-            </Link>
-            <Link href="/messages">
-              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
-                <div className="w-11 h-11 rounded-xl bg-pink-500/15 flex items-center justify-center">
-                  <MessageCircle className="h-5 w-5 text-pink-500" />
-                </div>
-                <span className="text-[11px] font-medium">پیام‌ها</span>
-              </div>
-            </Link>
-            <Link href="/challenges">
-              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
-                <div className="w-11 h-11 rounded-xl bg-orange-500/15 flex items-center justify-center">
-                  <Zap className="h-5 w-5 text-orange-500" />
-                </div>
-                <span className="text-[11px] font-medium">چالش‌ها</span>
-              </div>
-            </Link>
-            <Link href="/leagues">
-              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
-                <div className="w-11 h-11 rounded-xl bg-yellow-500/15 flex items-center justify-center">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                </div>
-                <span className="text-[11px] font-medium">لیگ‌ها</span>
-              </div>
-            </Link>
-            <Link href="/education">
-              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
-                <div className="w-11 h-11 rounded-xl bg-cyan-500/15 flex items-center justify-center">
-                  <GraduationCap className="h-5 w-5 text-cyan-500" />
-                </div>
-                <span className="text-[11px] font-medium">انجمن</span>
-              </div>
-            </Link>
-            <Link href="/feed">
-              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
-                <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center">
-                  <Newspaper className="h-5 w-5 text-emerald-500" />
-                </div>
-                <span className="text-[11px] font-medium">فید</span>
-              </div>
-            </Link>
+            {isCoach ? (
+              <>
+                {/* Coach Quick Access */}
+                <Link href="/coach/students">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">شاگردها</span>
+                  </div>
+                </Link>
+                <Link href="/coach/requests">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all relative">
+                    <div className="w-11 h-11 rounded-xl bg-orange-500/15 flex items-center justify-center">
+                      <MessageCircle className="h-5 w-5 text-orange-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">درخواست‌ها</span>
+                    {(pendingCountData?.count || 0) > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-red-500">
+                        {toPersianNumber(pendingCountData?.count || 0)}
+                      </Badge>
+                    )}
+                  </div>
+                </Link>
+                <Link href="/coach/program-builder">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
+                      <Dumbbell className="h-5 w-5 text-primary" />
+                    </div>
+                    <span className="text-[11px] font-medium">برنامه‌ساز</span>
+                  </div>
+                </Link>
+                <Link href="/coach/nutrition-builder">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-green-500/15 flex items-center justify-center">
+                      <Apple className="h-5 w-5 text-green-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">تغذیه‌ساز</span>
+                  </div>
+                </Link>
+                <Link href="/coach/dashboard">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-purple-500/15 flex items-center justify-center">
+                      <Star className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">داشبورد</span>
+                  </div>
+                </Link>
+                <Link href="/challenges">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-yellow-500/15 flex items-center justify-center">
+                      <Zap className="h-5 w-5 text-yellow-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">چالش‌ها</span>
+                  </div>
+                </Link>
+                <Link href="/education">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-cyan-500/15 flex items-center justify-center">
+                      <GraduationCap className="h-5 w-5 text-cyan-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">انجمن</span>
+                  </div>
+                </Link>
+                <Link href="/feed">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                      <Newspaper className="h-5 w-5 text-emerald-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">فید</span>
+                  </div>
+                </Link>
+              </>
+            ) : (
+              <>
+                {/* User Quick Access */}
+                <Link href="/coaches">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">مربیان</span>
+                  </div>
+                </Link>
+                <Link href="/my-programs">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
+                      <Dumbbell className="h-5 w-5 text-primary" />
+                    </div>
+                    <span className="text-[11px] font-medium">برنامه‌هام</span>
+                  </div>
+                </Link>
+                <Link href="/store">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-purple-500/15 flex items-center justify-center">
+                      <ShoppingBag className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">فروشگاه</span>
+                  </div>
+                </Link>
+                <Link href="/messages">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-pink-500/15 flex items-center justify-center">
+                      <MessageCircle className="h-5 w-5 text-pink-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">پیام‌ها</span>
+                  </div>
+                </Link>
+                <Link href="/challenges">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-orange-500/15 flex items-center justify-center">
+                      <Zap className="h-5 w-5 text-orange-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">چالش‌ها</span>
+                  </div>
+                </Link>
+                <Link href="/leagues">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-yellow-500/15 flex items-center justify-center">
+                      <Trophy className="h-5 w-5 text-yellow-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">لیگ‌ها</span>
+                  </div>
+                </Link>
+                <Link href="/education">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-cyan-500/15 flex items-center justify-center">
+                      <GraduationCap className="h-5 w-5 text-cyan-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">انجمن</span>
+                  </div>
+                </Link>
+                <Link href="/feed">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border/50 hover:bg-muted/50 active:scale-95 transition-all">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                      <Newspaper className="h-5 w-5 text-emerald-500" />
+                    </div>
+                    <span className="text-[11px] font-medium">فید</span>
+                  </div>
+                </Link>
+              </>
+            )}
           </div>
         </section>
 
         {/* Secondary Quick Access */}
         <section className="px-4 pb-4">
           <div className="flex gap-2">
-            <Link href="/my-requests" className="flex-1">
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 active:scale-[0.98] transition-all">
-                <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-medium">درخواست‌هام</span>
-              </div>
-            </Link>
-            <Link href="/settings" className="flex-1">
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 active:scale-[0.98] transition-all">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-medium">تنظیمات</span>
-              </div>
-            </Link>
+            {isCoach ? (
+              <>
+                <Link href="/messages" className="flex-1">
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 active:scale-[0.98] transition-all">
+                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-medium">پیام‌ها</span>
+                  </div>
+                </Link>
+                <Link href="/settings" className="flex-1">
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 active:scale-[0.98] transition-all">
+                    <Settings className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-medium">تنظیمات</span>
+                  </div>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/my-requests" className="flex-1">
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 active:scale-[0.98] transition-all">
+                    <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-medium">درخواست‌هام</span>
+                  </div>
+                </Link>
+                <Link href="/settings" className="flex-1">
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 active:scale-[0.98] transition-all">
+                    <Settings className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-medium">تنظیمات</span>
+                  </div>
+                </Link>
+              </>
+            )}
           </div>
         </section>
 

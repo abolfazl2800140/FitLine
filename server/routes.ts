@@ -8,7 +8,7 @@ import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { z } from "zod";
-import { insertUserSchema, insertPostSchema, insertQuestionSchema, insertMessageSchema, insertCoachingRequestSchema } from "@shared/schema";
+import { insertUserSchema, insertPostSchema, insertQuestionSchema, insertMessageSchema, insertCoachingRequestSchema, insertExerciseTutorialSchema, insertArticleSchema } from "@shared/schema";
 import { pool } from "./db";
 import multer from "multer";
 import path from "path";
@@ -244,6 +244,42 @@ export async function registerRoutes(
       });
 
       res.json(photo);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Upload profile avatar
+  app.post('/api/user/avatar', requireAuth, (req, res, next) => {
+    upload.single('avatar')(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: 'حجم فایل نباید بیشتر از ۵ مگابایت باشد' });
+        }
+        return res.status(400).json({ message: err.message });
+      } else if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'لطفاً یک تصویر انتخاب کنید' });
+      }
+
+      const avatarUrl = `/uploads/${req.file.filename}`;
+      
+      const updatedUser = await storage.updateUser(req.user!.id, { avatar: avatarUrl });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'کاربر یافت نشد' });
+      }
+
+      // Update session user data
+      req.user!.avatar = avatarUrl;
+
+      res.json({ avatar: avatarUrl });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -784,6 +820,123 @@ export async function registerRoutes(
       res.json(message);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Edit message
+  app.patch('/api/messages/:id', requireAuth, async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content || !content.trim()) {
+        return res.status(400).json({ message: 'محتوای پیام نمی‌تواند خالی باشد' });
+      }
+      const message = await storage.editMessage(req.params.id, req.user!.id, content);
+      if (!message) {
+        return res.status(404).json({ message: 'پیام یافت نشد یا شما اجازه ویرایش ندارید' });
+      }
+      res.json(message);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Delete message
+  app.delete('/api/messages/:id', requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteMessage(req.params.id, req.user!.id);
+      if (!success) {
+        return res.status(404).json({ message: 'پیام یافت نشد یا شما اجازه حذف ندارید' });
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Add reaction to message
+  app.post('/api/messages/:id/reactions', requireAuth, async (req, res) => {
+    try {
+      const { emoji } = req.body;
+      if (!emoji) {
+        return res.status(400).json({ message: 'ایموجی الزامی است' });
+      }
+      const reaction = await storage.addReaction(req.params.id, req.user!.id, emoji);
+      res.json(reaction);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Remove reaction from message
+  app.delete('/api/messages/:id/reactions/:emoji', requireAuth, async (req, res) => {
+    try {
+      await storage.removeReaction(req.params.id, req.user!.id, req.params.emoji);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get message reactions
+  app.get('/api/messages/:id/reactions', async (req, res) => {
+    try {
+      const reactions = await storage.getMessageReactions(req.params.id);
+      res.json(reactions);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Mark messages as read
+  app.post('/api/conversations/:id/read', requireAuth, async (req, res) => {
+    try {
+      await storage.markMessagesAsRead(req.params.id, req.user!.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Upload voice message
+  app.post('/api/messages/voice', requireAuth, upload.single('voice'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'فایل صوتی یافت نشد' });
+      }
+      const voiceUrl = `/uploads/${req.file.filename}`;
+      const { conversationId, duration, replyToId } = req.body;
+
+      if (!conversationId) {
+        return res.status(400).json({ message: 'شناسه مکالمه الزامی است' });
+      }
+
+      const message = await storage.sendMessage({
+        conversationId,
+        senderId: req.user!.id,
+        content: '🎤 پیام صوتی',
+        messageType: 'voice',
+        voiceUrl,
+        voiceDuration: parseInt(duration) || 0,
+        replyToId: replyToId || null,
+      });
+
+      // Notify recipient
+      const conversations = await storage.getConversations(req.user!.id);
+      const conv = conversations.find(c => c.id === conversationId);
+      if (conv?.participant?.id) {
+        const sendToUser = (global as any).wsSendToUser;
+        if (sendToUser) {
+          sendToUser(conv.participant.id, {
+            type: 'new_message',
+            message,
+            conversationId,
+          });
+        }
+      }
+
+      res.json(message);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 
@@ -1450,6 +1603,126 @@ export async function registerRoutes(
   });
 
   // ==================== END NUTRITION PLAN APIs ====================
+
+  // ==================== EDUCATION ROUTES ====================
+
+  // Get all exercise tutorials
+  app.get('/api/tutorials', async (req, res) => {
+    try {
+      const { muscleGroup, difficulty } = req.query;
+      const tutorials = await storage.getExerciseTutorials(
+        muscleGroup as string | undefined,
+        difficulty as string | undefined
+      );
+      res.json(tutorials);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tutorials" });
+    }
+  });
+
+  // Get single tutorial
+  app.get('/api/tutorials/:id', async (req, res) => {
+    try {
+      const tutorial = await storage.getExerciseTutorial(req.params.id);
+      if (!tutorial) {
+        return res.status(404).json({ message: "Tutorial not found" });
+      }
+      await storage.incrementTutorialViews(req.params.id);
+      res.json(tutorial);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tutorial" });
+    }
+  });
+
+  // Create tutorial (verified coaches only)
+  app.post('/api/tutorials', requireAuth, async (req, res) => {
+    try {
+      const user = req.user!;
+      const coachProfile = await storage.getCoachProfile(user.id);
+      if (!coachProfile || !coachProfile.isVerified) {
+        return res.status(403).json({ message: "Only verified coaches can create tutorials" });
+      }
+      const data = insertExerciseTutorialSchema.parse({
+        ...req.body,
+        coachId: user.id,
+      });
+      const tutorial = await storage.createExerciseTutorial(data);
+      res.status(201).json(tutorial);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid tutorial data" });
+    }
+  });
+
+  // Like/unlike tutorial
+  app.post('/api/tutorials/:id/like', requireAuth, async (req, res) => {
+    try {
+      const result = await storage.toggleTutorialLike(req.params.id, req.user!.id);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle like" });
+    }
+  });
+
+  // Get all articles
+  app.get('/api/articles', async (req, res) => {
+    try {
+      const { category } = req.query;
+      const articles = await storage.getArticles(category as string | undefined);
+      res.json(articles);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch articles" });
+    }
+  });
+
+  // Get single article
+  app.get('/api/articles/:id', async (req, res) => {
+    try {
+      const article = await storage.getArticle(req.params.id);
+      if (!article) {
+        return res.status(404).json({ message: "Article not found" });
+      }
+      await storage.incrementArticleViews(req.params.id);
+      res.json(article);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch article" });
+    }
+  });
+
+  // Create article (coaches only)
+  app.post('/api/articles', requireAuth, async (req, res) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'coach') {
+        return res.status(403).json({ message: "Only coaches can create articles" });
+      }
+      const slug = req.body.title
+        .toLowerCase()
+        .replace(/[^\w\s\u0600-\u06FF]/g, '')
+        .replace(/\s+/g, '-')
+        .substring(0, 100) + '-' + Date.now();
+      const data = insertArticleSchema.parse({
+        ...req.body,
+        authorId: user.id,
+        slug,
+      });
+      const article = await storage.createArticle(data);
+      res.status(201).json(article);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid article data" });
+    }
+  });
+
+  // Like/unlike article
+  app.post('/api/articles/:id/like', requireAuth, async (req, res) => {
+    try {
+      const result = await storage.toggleArticleLike(req.params.id, req.user!.id);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle like" });
+    }
+  });
+
+  // ==================== END EDUCATION ROUTES ====================
 
   // WebSocket for real-time messaging
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });

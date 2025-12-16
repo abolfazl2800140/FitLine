@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, MessagesSquare, Dumbbell, User, PenSquare, MessageCircle, ShoppingBag, Wallet } from "lucide-react";
+import { Home, Users, MessagesSquare, Dumbbell, User, PenSquare, MessageCircle, ShoppingBag, Wallet, GraduationCap } from "lucide-react";
 import { translations } from "@/lib/persian";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -7,19 +7,19 @@ import { useQuery } from "@tanstack/react-query";
 
 // Nav items for regular users (athletes)
 const userNavItems = [
-  { path: "/", icon: Home, label: translations.nav.home },
   { path: "/coaches", icon: Users, label: translations.nav.coaches },
   { path: "/messages", icon: MessageCircle, label: "پیام‌ها" },
-  { path: "/store", icon: ShoppingBag, label: "فروشگاه" },
+  { path: "/", icon: Home, label: translations.nav.home },
+  { path: "/learn", icon: GraduationCap, label: "آموزش" },
   { path: "/profile", icon: User, label: translations.nav.profile },
 ];
 
-// Nav items for coaches
+// Nav items for coaches (same as users but with "همکاران" instead of "مربی‌ها")
 const coachNavItems = [
-  { path: "/", icon: Home, label: "داشبورد" },
-  { path: "/coach/students", icon: Users, label: "شاگردها" },
-  { path: "/coach/program-builder", icon: PenSquare, label: "برنامه‌ساز" },
+  { path: "/coaches", icon: Users, label: "همکاران" },
   { path: "/messages", icon: MessageCircle, label: "پیام‌ها" },
+  { path: "/", icon: Home, label: translations.nav.home },
+  { path: "/learn", icon: GraduationCap, label: "آموزش" },
   { path: "/profile", icon: User, label: "پروفایل" },
 ];
 

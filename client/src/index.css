@@ -911,3 +911,29 @@ body {
 body.hide-bottom-nav .bottom-nav-container {
   display: none;
 }
+
+/* Typing indicator animation - Telegram style */
+@keyframes typingDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.animate-typing-dot-1 {
+  animation: typingDot 1.4s ease-in-out infinite;
+}
+
+.animate-typing-dot-2 {
+  animation: typingDot 1.4s ease-in-out infinite;
+  animation-delay: 0.2s;
+}
+
+.animate-typing-dot-3 {
+  animation: typingDot 1.4s ease-in-out infinite;
+  animation-delay: 0.4s;
+}

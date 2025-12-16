@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import { Progress } from "@/components/ui/progress";
 import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
 import { translations, toPersianNumber, formatDate } from "@/lib/persian";
 import { Link } from "wouter";
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   User,
   Settings,
@@ -62,10 +64,66 @@ const badgeIcons: Record<string, React.ReactNode> = {
 
 export default function ProfilePage() {
   const [tab, setTab] = useState("timeline");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const { data: currentUser, isLoading: userLoading } = useQuery<any>({
     queryKey: ["/api/auth/me"],
   });
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("avatar", file);
+      const res = await fetch("/api/user/avatar", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const error = await res.json();
+          throw new Error(error.message || "خطا در آپلود عکس");
+        }
+        throw new Error("خطا در آپلود عکس. لطفاً دوباره تلاش کنید.");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({
+        title: "عکس پروفایل آپدیت شد",
+        description: "عکس پروفایل شما با موفقیت تغییر کرد",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "خطا",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "خطا",
+          description: "حجم فایل نباید بیشتر از ۵ مگابایت باشد",
+          variant: "destructive",
+        });
+        return;
+      }
+      uploadAvatarMutation.mutate(file);
+    }
+  };
 
   const { data: userPosts, isLoading: postsLoading } = useQuery<any[]>({
     queryKey: ["/api/user/posts"],
@@ -130,6 +188,13 @@ export default function ProfilePage() {
           <CardContent className="relative px-6 pb-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
               <div className="relative">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  className="hidden"
+                />
                 <Avatar className="h-24 w-24 border-4 border-background">
                   <AvatarImage src={currentUser?.avatar || undefined} />
                   <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
@@ -140,8 +205,14 @@ export default function ProfilePage() {
                   size="icon"
                   variant="secondary"
                   className="absolute bottom-0 left-0 h-8 w-8 rounded-full"
+                  onClick={handleAvatarClick}
+                  disabled={uploadAvatarMutation.isPending}
                 >
-                  <Camera className="h-4 w-4" />
+                  {uploadAvatarMutation.isPending ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               <div className="flex-1 text-center sm:text-right">
