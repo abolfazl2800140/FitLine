@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ChevronRight, Heart, Eye, Play, CheckCircle2, 
-  AlertTriangle, Lightbulb, Dumbbell
+  AlertTriangle, Lightbulb, Dumbbell, Bookmark
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toPersianNumber } from "@/lib/persian";
@@ -57,10 +57,52 @@ export default function TutorialDetailPage() {
 
   const likeMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/tutorials/${id}/like`, { method: "POST" });
+      return apiRequest("POST", `/api/tutorials/${id}/like`);
+    },
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/tutorials", id] });
+
+      // Snapshot the previous value
+      const previousTutorial = queryClient.getQueryData(["/api/tutorials", id]);
+
+      // Optimistically update
+      queryClient.setQueryData(["/api/tutorials", id], (old: any) => ({
+        ...old,
+        isLiked: !old?.isLiked,
+        likeCount: old?.isLiked ? (old?.likeCount || 1) - 1 : (old?.likeCount || 0) + 1,
+      }));
+
+      return { previousTutorial };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousTutorial) {
+        queryClient.setQueryData(["/api/tutorials", id], context.previousTutorial);
+      }
+    },
+  });
+
+  const bookmarkMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/tutorials/${id}/bookmark`);
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["/api/tutorials", id] });
+      const previousTutorial = queryClient.getQueryData(["/api/tutorials", id]);
+      queryClient.setQueryData(["/api/tutorials", id], (old: any) => ({
+        ...old,
+        isBookmarked: !old?.isBookmarked,
+      }));
+      return { previousTutorial };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousTutorial) {
+        queryClient.setQueryData(["/api/tutorials", id], context.previousTutorial);
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tutorials", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookmarks"] });
     },
   });
 
@@ -123,17 +165,21 @@ export default function TutorialDetailPage() {
             <Button
               variant="ghost"
               size="icon"
-              className={cn(likeMutation.isPending && "opacity-50")}
-              onClick={() => likeMutation.mutate()}
+              className={cn(bookmarkMutation.isPending && "opacity-50")}
+              onClick={() => bookmarkMutation.mutate()}
             >
-              <Heart className={cn("h-5 w-5", tutorial.isLiked && "fill-red-500 text-red-500")} />
+              <Bookmark className={cn("h-5 w-5", tutorial.isBookmarked && "fill-primary text-primary")} />
             </Button>
           </div>
           <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Heart className="h-4 w-4" />
+            <button 
+              className={cn("flex items-center gap-1 transition-colors", tutorial.isLiked && "text-red-500")}
+              onClick={() => likeMutation.mutate()}
+              disabled={likeMutation.isPending}
+            >
+              <Heart className={cn("h-4 w-4", tutorial.isLiked && "fill-current")} />
               {toPersianNumber(tutorial.likeCount || 0)} پسند
-            </span>
+            </button>
             <span className="flex items-center gap-1">
               <Eye className="h-4 w-4" />
               {toPersianNumber(tutorial.viewCount || 0)} بازدید

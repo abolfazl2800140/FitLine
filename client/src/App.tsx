@@ -46,14 +46,9 @@ const LearnPage = lazy(() => import("@/pages/learn"));
 const TutorialDetailPage = lazy(() => import("@/pages/tutorial-detail"));
 const ArticleDetailPage = lazy(() => import("@/pages/article-detail"));
 const NewArticlePage = lazy(() => import("@/pages/new-article"));
+const BookmarksPage = lazy(() => import("@/pages/bookmarks"));
 
-function PageLoader() {
-  return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
-}
+import { PageLoader } from "@/components/ui/loading-spinner";
 
 function Router() {
   return (
@@ -98,6 +93,7 @@ function Router() {
         <Route path="/learn/new-article" component={NewArticlePage} />
         <Route path="/learn/tutorial/:id" component={TutorialDetailPage} />
         <Route path="/learn/article/:id" component={ArticleDetailPage} />
+        <Route path="/bookmarks" component={BookmarksPage} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

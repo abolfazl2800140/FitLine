@@ -2,6 +2,9 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
+import { db } from "./db";
+import { messages } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -495,7 +498,8 @@ export async function registerRoutes(
 
   app.get('/api/posts/:id', async (req, res) => {
     try {
-      const post = await storage.getPost(req.params.id);
+      const userId = req.user?.id;
+      const post = await storage.getPost(req.params.id, userId);
       if (!post) {
         return res.status(404).json({ message: 'Post not found' });
       }
@@ -554,6 +558,36 @@ export async function registerRoutes(
     try {
       await storage.unlikePost(req.user!.id, req.params.id);
       res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Bookmark post
+  app.post('/api/posts/:id/bookmark', requireAuth, async (req, res) => {
+    try {
+      const result = await storage.toggleBookmark(req.user!.id, req.params.id, 'post');
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle bookmark" });
+    }
+  });
+
+  // Report content
+  app.post('/api/reports', requireAuth, async (req, res) => {
+    try {
+      const { itemId, itemType, reason, description } = req.body;
+      if (!itemId || !itemType || !reason) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+      const report = await storage.createReport({
+        reporterId: req.user!.id,
+        itemId,
+        itemType,
+        reason,
+        description,
+      });
+      res.json({ success: true, report });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -786,8 +820,8 @@ export async function registerRoutes(
 
   app.get('/api/conversations/:id/messages', requireAuth, async (req, res) => {
     try {
-      const messages = await storage.getMessages(req.params.id);
-      res.json(messages);
+      const msgs = await storage.getMessages(req.params.id);
+      res.json(msgs);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -861,6 +895,24 @@ export async function registerRoutes(
         return res.status(400).json({ message: 'ایموجی الزامی است' });
       }
       const reaction = await storage.addReaction(req.params.id, req.user!.id, emoji);
+      
+      // Get the message to find the conversation and notify the other user
+      const [message] = await db.select().from(messages).where(eq(messages.id, req.params.id)).limit(1);
+      if (message) {
+        const sendToUser = (global as any).wsSendToUser;
+        if (sendToUser) {
+          // Notify the message sender (if it's not the current user)
+          if (message.senderId !== req.user!.id) {
+            sendToUser(message.senderId, {
+              type: 'reaction_added',
+              messageId: req.params.id,
+              conversationId: message.conversationId,
+              reaction: { ...reaction, userName: req.user!.fullName },
+            });
+          }
+        }
+      }
+      
       res.json(reaction);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -1034,6 +1086,16 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Bookmark question
+  app.post('/api/questions/:id/bookmark', requireAuth, async (req, res) => {
+    try {
+      const result = await storage.toggleBookmark(req.user!.id, req.params.id, 'question');
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle bookmark" });
     }
   });
 
@@ -1621,14 +1683,24 @@ export async function registerRoutes(
   });
 
   // Get single tutorial
-  app.get('/api/tutorials/:id', async (req, res) => {
+  app.get('/api/tutorials/:id', requireAuth, async (req, res) => {
     try {
       const tutorial = await storage.getExerciseTutorial(req.params.id);
       if (!tutorial) {
         return res.status(404).json({ message: "Tutorial not found" });
       }
       await storage.incrementTutorialViews(req.params.id);
-      res.json(tutorial);
+      
+      // Check if user liked and bookmarked this tutorial
+      const isLiked = await storage.isTutorialLiked(req.params.id, req.user!.id);
+      const isBookmarked = await storage.isBookmarked(req.user!.id, req.params.id, 'tutorial');
+      
+      res.json({
+        ...tutorial,
+        viewCount: tutorial.viewCount + 1, // Return updated view count
+        isLiked,
+        isBookmarked,
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch tutorial" });
     }
@@ -1675,14 +1747,24 @@ export async function registerRoutes(
   });
 
   // Get single article
-  app.get('/api/articles/:id', async (req, res) => {
+  app.get('/api/articles/:id', requireAuth, async (req, res) => {
     try {
       const article = await storage.getArticle(req.params.id);
       if (!article) {
         return res.status(404).json({ message: "Article not found" });
       }
       await storage.incrementArticleViews(req.params.id);
-      res.json(article);
+      
+      // Check if user liked and bookmarked this article
+      const isLiked = await storage.isArticleLiked(req.params.id, req.user!.id);
+      const isBookmarked = await storage.isBookmarked(req.user!.id, req.params.id, 'article');
+      
+      res.json({
+        ...article,
+        viewCount: article.viewCount + 1, // Return updated view count
+        isLiked,
+        isBookmarked,
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch article" });
     }
@@ -1719,6 +1801,36 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to toggle like" });
+    }
+  });
+
+  // Toggle bookmark for article
+  app.post('/api/articles/:id/bookmark', requireAuth, async (req, res) => {
+    try {
+      const result = await storage.toggleBookmark(req.user!.id, req.params.id, 'article');
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle bookmark" });
+    }
+  });
+
+  // Toggle bookmark for tutorial
+  app.post('/api/tutorials/:id/bookmark', requireAuth, async (req, res) => {
+    try {
+      const result = await storage.toggleBookmark(req.user!.id, req.params.id, 'tutorial');
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle bookmark" });
+    }
+  });
+
+  // Get user's bookmarks
+  app.get('/api/bookmarks', requireAuth, async (req, res) => {
+    try {
+      const bookmarks = await storage.getUserBookmarks(req.user!.id);
+      res.json(bookmarks);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch bookmarks" });
     }
   });
 

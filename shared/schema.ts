@@ -623,6 +623,39 @@ export const articleLikesRelations = relations(articleLikes, ({ one }) => ({
   user: one(users, { fields: [articleLikes.userId], references: [users.id] }),
 }));
 
+// Bookmarks (ذخیره مقالات و آموزش‌ها)
+export const bookmarks = pgTable("bookmarks", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  itemId: varchar("item_id", { length: 36 }).notNull(),
+  itemType: varchar("item_type", { length: 20 }).notNull(), // 'article' or 'tutorial'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const bookmarksRelations = relations(bookmarks, ({ one }) => ({
+  user: one(users, { fields: [bookmarks.userId], references: [users.id] }),
+}));
+
+// ==================== REPORTS SYSTEM ====================
+export const reportReasonEnum = pgEnum('report_reason', ['spam', 'inappropriate', 'harassment', 'misinformation', 'other']);
+export const reportStatusEnum = pgEnum('report_status', ['pending', 'reviewed', 'resolved', 'dismissed']);
+export const reportItemTypeEnum = pgEnum('report_item_type', ['post', 'comment', 'question', 'answer']);
+
+export const reports = pgTable("reports", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  reporterId: varchar("reporter_id", { length: 36 }).notNull().references(() => users.id),
+  itemId: varchar("item_id", { length: 36 }).notNull(),
+  itemType: reportItemTypeEnum("item_type").notNull(),
+  reason: reportReasonEnum("reason").notNull(),
+  description: text("description"),
+  status: reportStatusEnum("status").default('pending').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+  reporter: one(users, { fields: [reports.reporterId], references: [users.id] }),
+}));
+
 // Relations for nutrition
 export const nutritionPlansRelations = relations(nutritionPlans, ({ one, many }) => ({
   coach: one(users, { fields: [nutritionPlans.coachId], references: [users.id], relationName: "nutritionCoach" }),
@@ -705,6 +738,8 @@ export const insertExerciseTutorialSchema = createInsertSchema(exerciseTutorials
 export const insertArticleSchema = createInsertSchema(articles).omit({ id: true, createdAt: true, updatedAt: true, likeCount: true, viewCount: true });
 export const insertExerciseTutorialLikeSchema = createInsertSchema(exerciseTutorialLikes).omit({ id: true, createdAt: true });
 export const insertArticleLikeSchema = createInsertSchema(articleLikes).omit({ id: true, createdAt: true });
+export const insertBookmarkSchema = createInsertSchema(bookmarks).omit({ id: true, createdAt: true });
+export const insertReportSchema = createInsertSchema(reports).omit({ id: true, createdAt: true, status: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -791,3 +826,7 @@ export type InsertExerciseTutorialLike = z.infer<typeof insertExerciseTutorialLi
 export type ExerciseTutorialLike = typeof exerciseTutorialLikes.$inferSelect;
 export type InsertArticleLike = z.infer<typeof insertArticleLikeSchema>;
 export type ArticleLike = typeof articleLikes.$inferSelect;
+export type InsertBookmark = z.infer<typeof insertBookmarkSchema>;
+export type Bookmark = typeof bookmarks.$inferSelect;
+export type InsertReport = z.infer<typeof insertReportSchema>;
+export type Report = typeof reports.$inferSelect;

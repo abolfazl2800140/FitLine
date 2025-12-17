@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
 import { translations, toPersianNumber, formatDate } from "@/lib/persian";
 import { Link } from "wouter";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   User,
@@ -28,6 +28,7 @@ import {
   Scale,
   ClipboardList,
   ChevronLeft,
+  Bookmark,
 } from "lucide-react";
 import {
   LineChart,
@@ -130,6 +131,30 @@ export default function ProfilePage() {
     enabled: !!currentUser,
   });
 
+  const likeMutation = useMutation({
+    mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
+      const method = isLiked ? "DELETE" : "POST";
+      return apiRequest(method, `/api/posts/${postId}/like`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/posts"] });
+    },
+  });
+
+  const bookmarkMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      return apiRequest("POST", `/api/posts/${postId}/bookmark`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookmarks"] });
+    },
+  });
+
+  const handleLike = (postId: string, isCurrentlyLiked: boolean) => {
+    likeMutation.mutate({ postId, isLiked: isCurrentlyLiked });
+  };
+
   const { data: userPrograms } = useQuery<any[]>({
     queryKey: ["/api/user/programs"],
     enabled: !!currentUser,
@@ -220,6 +245,12 @@ export default function ProfilePage() {
                 <p className="text-muted-foreground">@{currentUser?.username}</p>
               </div>
               <div className="flex gap-2">
+                <Link href="/bookmarks">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Bookmark className="h-4 w-4" />
+                    <span className="hidden sm:inline">ذخیره‌شده‌ها</span>
+                  </Button>
+                </Link>
                 <Link href="/settings">
                   <Button variant="outline" size="sm" className="gap-2">
                     <Settings className="h-4 w-4" />
@@ -407,6 +438,10 @@ export default function ProfilePage() {
                     likeCount={post.likeCount || 0}
                     commentCount={post.commentCount || 0}
                     createdAt={post.createdAt}
+                    isLiked={post.isLiked || false}
+                    isSaved={post.isBookmarked || false}
+                    onLike={(isCurrentlyLiked) => handleLike(post.id, isCurrentlyLiked)}
+                    onSave={() => bookmarkMutation.mutate(post.id)}
                   />
                 ))
               ) : (

@@ -148,17 +148,35 @@ function handleCacheUpdate(message: WebSocketMessage, queryClient: any) {
         // New message received
         case 'message':
         case 'new_message':
-            queryClient.invalidateQueries({
-                queryKey: ['/api/conversations', message.message?.conversationId, 'messages']
-            });
+            // Add new message to cache instead of invalidating
+            if (message.message && message.conversationId) {
+                queryClient.setQueryData<any[]>(
+                    ['/api/conversations', message.conversationId, 'messages'],
+                    (old) => {
+                        if (!old) return old;
+                        // Check if message already exists
+                        if (old.some(m => m.id === message.message.id)) return old;
+                        return [...old, { ...message.message, reactions: message.message.reactions || [] }];
+                    }
+                );
+            }
             queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
             break;
 
         // Message sent confirmation
         case 'message_sent':
-            queryClient.invalidateQueries({
-                queryKey: ['/api/conversations', message.message?.conversationId, 'messages']
-            });
+            // Add sent message to cache instead of invalidating
+            if (message.message && message.conversationId) {
+                queryClient.setQueryData<any[]>(
+                    ['/api/conversations', message.conversationId, 'messages'],
+                    (old) => {
+                        if (!old) return old;
+                        // Check if message already exists
+                        if (old.some(m => m.id === message.message.id)) return old;
+                        return [...old, { ...message.message, reactions: message.message.reactions || [] }];
+                    }
+                );
+            }
             queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
             break;
 
@@ -173,6 +191,13 @@ function handleCacheUpdate(message: WebSocketMessage, queryClient: any) {
         case 'request_rejected':
             queryClient.invalidateQueries({ queryKey: ['/api/coaching-requests/my'] });
             queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+            break;
+
+        // Reaction added to message
+        case 'reaction_added':
+            queryClient.invalidateQueries({
+                queryKey: ['/api/conversations', message.conversationId, 'messages']
+            });
             break;
 
         // New post in feed

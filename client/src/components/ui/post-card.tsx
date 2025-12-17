@@ -1,10 +1,10 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share2, MoreHorizontal, Bookmark } from "lucide-react";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, Flag } from "lucide-react";
 import { formatRelativeTime, toPersianNumber } from "@/lib/persian";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReportDialog } from "@/components/ui/report-dialog";
 
 
 interface PostCardProps {
@@ -26,7 +27,8 @@ interface PostCardProps {
   createdAt: string | Date;
   isLiked?: boolean;
   isSaved?: boolean;
-  onLike?: () => void;
+  onLike?: (isCurrentlyLiked: boolean) => void;
+  onSave?: () => void;
   onComment?: () => void;
   onShare?: () => void;
   className?: string;
@@ -45,6 +47,7 @@ export function PostCard({
   isLiked = false,
   isSaved = false,
   onLike,
+  onSave,
   onComment,
   onShare,
   className,
@@ -53,9 +56,22 @@ export function PostCard({
   const [saved, setSaved] = useState(isSaved);
   const [likes, setLikes] = useState(likeCount);
   const [likeAnimating, setLikeAnimating] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [, setLocation] = useLocation();
 
+  // Sync state with props when they change
+  useEffect(() => {
+    setLiked(isLiked);
+    setLikes(likeCount);
+  }, [isLiked, likeCount]);
+
+  useEffect(() => {
+    setSaved(isSaved);
+  }, [isSaved]);
+
   const handleLike = () => {
+    // Call API with current liked state
+    onLike?.(liked);
     // Optimistic update
     setLiked(!liked);
     setLikes(liked ? likes - 1 : likes + 1);
@@ -63,8 +79,6 @@ export function PostCard({
       setLikeAnimating(true);
       setTimeout(() => setLikeAnimating(false), 800);
     }
-    // Call API
-    onLike?.();
   };
 
   return (
@@ -99,21 +113,33 @@ export function PostCard({
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem>گزارش</DropdownMenuItem>
-            <DropdownMenuItem>کپی لینک</DropdownMenuItem>
+          <DropdownMenuContent align="end" className="text-right">
+            <DropdownMenuItem className="justify-end gap-2" onClick={() => setReportOpen(true)}>
+              <Flag className="h-4 w-4" />
+              گزارش
+            </DropdownMenuItem>
+            <DropdownMenuItem className="justify-end">کپی لینک</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <ReportDialog open={reportOpen} onOpenChange={setReportOpen} itemId={id} itemType="post" />
       </CardHeader>
 
       <CardContent className="px-4 py-2">
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
+        <p 
+          className="text-sm leading-relaxed whitespace-pre-wrap cursor-pointer"
+          onClick={() => setLocation(`/post/${id}`)}
+        >
+          {content}
+        </p>
 
         {images.length > 0 && (
-          <div className={cn(
-            "mt-3 rounded-lg overflow-hidden",
-            images.length === 1 ? "grid-cols-1" : "grid grid-cols-2 gap-1"
-          )}>
+          <div 
+            className={cn(
+              "mt-3 rounded-lg overflow-hidden cursor-pointer",
+              images.length === 1 ? "grid-cols-1" : "grid grid-cols-2 gap-1"
+            )}
+            onClick={() => setLocation(`/post/${id}`)}
+          >
             {images.slice(0, 4).map((image, index) => (
               <div
                 key={index}
@@ -146,48 +172,47 @@ export function PostCard({
           variant="ghost"
           size="icon"
           className="h-9 w-9 hover:bg-transparent"
-          onClick={() => setSaved(!saved)}
+          onClick={() => {
+            setSaved(!saved);
+            onSave?.();
+          }}
           data-testid={`button-save-${id}`}
         >
           <Bookmark className={cn("h-[22px] w-[22px]", saved && "fill-current")} />
         </Button>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            size="icon"
-            className="h-9 w-9 hover:bg-transparent"
+            size="sm"
+            className="h-9 px-2 hover:bg-transparent gap-1"
             onClick={onShare}
             data-testid={`button-share-${id}`}
           >
-            <Share2 className="h-[22px] w-[22px]" />
+            <Share2 className="h-[20px] w-[20px]" />
           </Button>
           <Button
             variant="ghost"
-            size="icon"
-            className="h-9 w-9 hover:bg-transparent"
+            size="sm"
+            className="h-9 px-2 hover:bg-transparent gap-1"
             onClick={() => setLocation(`/post/${id}`)}
             data-testid={`button-comment-${id}`}
           >
-            <MessageCircle className="h-[22px] w-[22px]" />
+            <MessageCircle className="h-[20px] w-[20px]" />
+            {commentCount > 0 && <span className="text-xs text-muted-foreground">{toPersianNumber(commentCount)}</span>}
           </Button>
           <Button
             variant="ghost"
-            size="icon"
-            className={cn("h-9 w-9 hover:bg-transparent", liked && "text-red-500")}
+            size="sm"
+            className={cn("h-9 px-2 hover:bg-transparent gap-1", liked && "text-red-500")}
             onClick={handleLike}
             data-testid={`button-like-${id}`}
           >
-            <Heart className={cn("h-[22px] w-[22px]", liked && "fill-current")} />
+            <Heart className={cn("h-[20px] w-[20px]", liked && "fill-current")} />
+            {likes > 0 && <span className="text-xs">{toPersianNumber(likes)}</span>}
           </Button>
         </div>
       </CardFooter>
-
-      {/* Stats row */}
-      <div className="px-4 pb-3 flex items-center justify-end gap-4 text-sm text-muted-foreground">
-        <span>{toPersianNumber(likes)} پسند</span>
-        <span>{toPersianNumber(commentCount)} پاسخ</span>
-      </div>
 
     </Card>
   );

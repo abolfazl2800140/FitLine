@@ -49,8 +49,60 @@ export default function FeedPage() {
       const method = isLiked ? "DELETE" : "POST";
       return apiRequest(method, `/api/posts/${postId}/like`);
     },
+    onMutate: async ({ postId, isLiked }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+
+      // Snapshot the previous value
+      const previousPosts = queryClient.getQueryData<any[]>(["/api/posts"]);
+
+      // Optimistically update the cache
+      queryClient.setQueryData<any[]>(["/api/posts"], (old) =>
+        old?.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: !isLiked,
+                likeCount: isLiked ? Math.max(0, post.likeCount - 1) : post.likeCount + 1,
+              }
+            : post
+        )
+      );
+
+      return { previousPosts };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousPosts) {
+        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+      }
+    },
+  });
+
+  const bookmarkMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      return apiRequest("POST", `/api/posts/${postId}/bookmark`);
+    },
+    onMutate: async (postId) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      const previousPosts = queryClient.getQueryData<any[]>(["/api/posts"]);
+      queryClient.setQueryData<any[]>(["/api/posts"], (old) =>
+        old?.map((post) =>
+          post.id === postId
+            ? { ...post, isBookmarked: !post.isBookmarked }
+            : post
+        )
+      );
+      return { previousPosts };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousPosts) {
+        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      // Invalidate bookmarks cache so the bookmarks page shows updated data
+      queryClient.invalidateQueries({ queryKey: ["/api/bookmarks"] });
     },
   });
 
@@ -64,8 +116,8 @@ export default function FeedPage() {
     await queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
   };
 
-  const handleLike = (postId: string, isLiked: boolean) => {
-    likeMutation.mutate({ postId, isLiked });
+  const handleLike = (postId: string, isCurrentlyLiked: boolean) => {
+    likeMutation.mutate({ postId, isLiked: isCurrentlyLiked });
   };
 
   return (
@@ -157,7 +209,9 @@ export default function FeedPage() {
                   commentCount={post.commentCount || 0}
                   createdAt={post.createdAt}
                   isLiked={post.isLiked || false}
-                  onLike={() => handleLike(post.id, post.isLiked)}
+                  isSaved={post.isBookmarked || false}
+                  onLike={(isCurrentlyLiked) => handleLike(post.id, isCurrentlyLiked)}
+                  onSave={() => bookmarkMutation.mutate(post.id)}
                 />
               ))
             ) : (

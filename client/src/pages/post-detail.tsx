@@ -61,10 +61,10 @@ export default function PostDetailPage() {
     const [, setLocation] = useLocation();
     const [newComment, setNewComment] = useState("");
     const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
-    const [liked, setLiked] = useState(false);
     const [saved, setSaved] = useState(false);
     const [isComposing, setIsComposing] = useState(false);
-
+    const [likeCount, setLikeCount] = useState(0);
+    const [isLiked, setIsLiked] = useState(false);
 
     const { data: currentUser } = useQuery<any>({
         queryKey: ["/api/auth/me"],
@@ -74,6 +74,22 @@ export default function PostDetailPage() {
         queryKey: [`/api/posts/${id}`],
         enabled: !!id,
     });
+
+    // Sync like state with post data
+    useState(() => {
+        if (post) {
+            setIsLiked(post.isLiked || false);
+            setLikeCount(post.likeCount || 0);
+        }
+    });
+
+    // Update state when post changes
+    if (post && likeCount === 0 && post.likeCount > 0) {
+        setLikeCount(post.likeCount);
+    }
+    if (post && !isLiked && post.isLiked) {
+        setIsLiked(post.isLiked);
+    }
 
     const { data: comments, isLoading: commentsLoading } = useQuery<Comment[]>({
         queryKey: [`/api/posts/${id}/comments`],
@@ -95,15 +111,29 @@ export default function PostDetailPage() {
     });
 
     const likeMutation = useMutation({
-        mutationFn: async (isLiked: boolean) => {
-            const method = isLiked ? "DELETE" : "POST";
+        mutationFn: async (currentlyLiked: boolean) => {
+            const method = currentlyLiked ? "DELETE" : "POST";
             return apiRequest(method, `/api/posts/${id}/like`);
+        },
+        onMutate: async (currentlyLiked: boolean) => {
+            // Optimistic update
+            setIsLiked(!currentlyLiked);
+            setLikeCount(prev => currentlyLiked ? prev - 1 : prev + 1);
+        },
+        onError: (err, currentlyLiked) => {
+            // Rollback on error
+            setIsLiked(currentlyLiked);
+            setLikeCount(prev => currentlyLiked ? prev + 1 : prev - 1);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [`/api/posts/${id}`] });
             queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
         },
     });
+
+    const handleLike = () => {
+        likeMutation.mutate(isLiked);
+    };
 
     const handleSubmit = () => {
         if (newComment.trim()) {
@@ -112,11 +142,6 @@ export default function PostDetailPage() {
                 parentId: replyingTo?.id,
             });
         }
-    };
-
-    const handleLike = () => {
-        setLiked(!liked);
-        likeMutation.mutate(liked);
     };
 
     if (postLoading) {
@@ -200,9 +225,9 @@ export default function PostDetailPage() {
                                             <MoreHorizontal className="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start">
-                                        <DropdownMenuItem>گزارش</DropdownMenuItem>
-                                        <DropdownMenuItem>کپی لینک</DropdownMenuItem>
+                                    <DropdownMenuContent align="end" className="text-right">
+                                        <DropdownMenuItem className="justify-end">گزارش</DropdownMenuItem>
+                                        <DropdownMenuItem className="justify-end">کپی لینک</DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
@@ -243,41 +268,8 @@ export default function PostDetailPage() {
                         {formatRelativeTime(post.createdAt)}
                     </div>
 
-                    {/* Post Stats */}
-                    <div className="flex items-center gap-4 mt-3 pt-3 border-t text-sm">
-                        <span>
-                            <strong>{toPersianNumber(post.likeCount)}</strong> پسند
-                        </span>
-                        <span>
-                            <strong>{toPersianNumber(post.commentCount)}</strong> پاسخ
-                        </span>
-                    </div>
-
-                    {/* Post Actions */}
+                    {/* Post Actions with Stats */}
                     <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                        <div className="flex items-center gap-1">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                    "gap-2 h-9 px-3 rounded-full",
-                                    (post.isLiked || liked) && "text-red-500"
-                                )}
-                                onClick={handleLike}
-                            >
-                                <Heart className={cn("h-5 w-5", (post.isLiked || liked) && "fill-current")} />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-2 h-9 px-3 rounded-full text-primary"
-                            >
-                                <MessageCircle className="h-5 w-5" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-9 px-3 rounded-full">
-                                <Share2 className="h-5 w-5" />
-                            </Button>
-                        </div>
                         <Button
                             variant="ghost"
                             size="icon"
@@ -286,6 +278,31 @@ export default function PostDetailPage() {
                         >
                             <Bookmark className={cn("h-5 w-5", saved && "fill-current")} />
                         </Button>
+                        <div className="flex items-center gap-3">
+                            <Button variant="ghost" size="sm" className="h-9 px-3 rounded-full gap-1">
+                                <Share2 className="h-5 w-5" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 h-9 px-3 rounded-full"
+                            >
+                                <MessageCircle className="h-5 w-5" />
+                                {post.commentCount > 0 && <span className="text-sm text-muted-foreground">{toPersianNumber(post.commentCount)}</span>}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                    "gap-1 h-9 px-3 rounded-full",
+                                    isLiked && "text-red-500"
+                                )}
+                                onClick={handleLike}
+                            >
+                                <Heart className={cn("h-5 w-5", isLiked && "fill-current")} />
+                                {(likeCount > 0 || post.likeCount > 0) && <span className="text-sm">{toPersianNumber(likeCount || post.likeCount)}</span>}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -371,7 +388,7 @@ export default function PostDetailPage() {
             )}
 
             {/* Comments List - Thread Style */}
-            <div className="pb-36">
+            <div className="pb-20">
                 {commentsLoading ? (
                     <div className="p-8 text-center">
                         <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -401,7 +418,7 @@ export default function PostDetailPage() {
             </div>
 
             {/* Bottom Comment Bar */}
-            <div className="fixed bottom-16 left-0 right-0 z-50 bg-background border-t border-b">
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t">
                 <div className="flex items-center gap-3 p-3">
                     <Avatar className="h-9 w-9">
                         <AvatarImage src={currentUser?.avatar || undefined} />

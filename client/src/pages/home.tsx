@@ -6,7 +6,8 @@ import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
 import { ProgramCard, ProgramCardSkeleton } from "@/components/ui/program-card";
 import { ChallengeCard, ChallengeCardSkeleton } from "@/components/ui/challenge-card";
 import { toPersianNumber } from "@/lib/persian";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import {
   Dumbbell,
@@ -37,6 +38,58 @@ export default function HomePage() {
   const { data: posts, isLoading: postsLoading } = useQuery<any[]>({
     queryKey: ["/api/posts"],
   });
+
+  const likeMutation = useMutation({
+    mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
+      const method = isLiked ? "DELETE" : "POST";
+      return apiRequest(method, `/api/posts/${postId}/like`);
+    },
+    onMutate: async ({ postId, isLiked }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      const previousPosts = queryClient.getQueryData<any[]>(["/api/posts"]);
+      queryClient.setQueryData<any[]>(["/api/posts"], (old) =>
+        old?.map((post) =>
+          post.id === postId
+            ? { ...post, isLiked: !isLiked, likeCount: isLiked ? Math.max(0, post.likeCount - 1) : post.likeCount + 1 }
+            : post
+        )
+      );
+      return { previousPosts };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousPosts) {
+        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+      }
+    },
+  });
+
+  const bookmarkMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      return apiRequest("POST", `/api/posts/${postId}/bookmark`);
+    },
+    onMutate: async (postId) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
+      const previousPosts = queryClient.getQueryData<any[]>(["/api/posts"]);
+      queryClient.setQueryData<any[]>(["/api/posts"], (old) =>
+        old?.map((post) =>
+          post.id === postId ? { ...post, isBookmarked: !post.isBookmarked } : post
+        )
+      );
+      return { previousPosts };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousPosts) {
+        queryClient.setQueryData(["/api/posts"], context.previousPosts);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookmarks"] });
+    },
+  });
+
+  const handleLike = (postId: string, isCurrentlyLiked: boolean) => {
+    likeMutation.mutate({ postId, isLiked: isCurrentlyLiked });
+  };
 
   const { data: programs, isLoading: programsLoading } = useQuery<any[]>({
     queryKey: ["/api/programs"],
@@ -338,31 +391,44 @@ export default function HomePage() {
               </Button>
             </Link>
           </div>
-          <div className="flex gap-4 overflow-x-auto px-5 no-scrollbar pb-2">
+          <div className="flex gap-3 overflow-x-auto px-5 no-scrollbar pb-2 snap-x snap-mandatory">
             {coachesLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="min-w-[160px]">
+                <div key={i} className="min-w-[140px] w-[140px] snap-start">
                   <CoachCardSkeleton />
                 </div>
               ))
             ) : coaches && coaches.length > 0 ? (
-              coaches.slice(0, 6).map((coach: any) => (
-                <div key={coach.id} className="min-w-[160px]">
-                  <CoachCard
-                    id={coach.id}
-                    name={coach.user?.fullName || "مربی"}
-                    avatar={coach.user?.avatar}
-                    specialty={coach.specialty}
-                    experience={coach.experience}
-                    pricePerSession={coach.pricePerSession}
-                    rating={coach.rating}
-                    reviewCount={coach.reviewCount || 0}
-                    clientCount={coach.clientCount || 0}
-                    isVerified={coach.isVerified}
-                    compact
-                  />
-                </div>
-              ))
+              <>
+                {coaches.slice(0, 6).map((coach: any) => (
+                  <div key={coach.id} className="min-w-[140px] w-[140px] snap-start">
+                    <CoachCard
+                      id={coach.id}
+                      name={coach.user?.fullName || "مربی"}
+                      avatar={coach.user?.avatar}
+                      specialty={coach.specialty}
+                      experience={coach.experience}
+                      pricePerSession={coach.pricePerSession}
+                      rating={coach.rating}
+                      reviewCount={coach.reviewCount || 0}
+                      clientCount={coach.clientCount || 0}
+                      isVerified={coach.isVerified}
+                      compact
+                    />
+                  </div>
+                ))}
+                {/* Scroll hint - shows there's more */}
+                {coaches.length > 2 && (
+                  <Link href="/coaches" className="min-w-[60px] flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <ChevronLeft className="h-5 w-5" />
+                      </div>
+                      <span className="text-[10px]">بیشتر</span>
+                    </div>
+                  </Link>
+                )}
+              </>
             ) : (
               <p className="text-muted-foreground text-sm">مربیان به زودی اضافه می‌شوند</p>
             )}
@@ -443,6 +509,10 @@ export default function HomePage() {
                   likeCount={post.likeCount || 0}
                   commentCount={post.commentCount || 0}
                   createdAt={post.createdAt}
+                  isLiked={post.isLiked || false}
+                  isSaved={post.isBookmarked || false}
+                  onLike={(isCurrentlyLiked) => handleLike(post.id, isCurrentlyLiked)}
+                  onSave={() => bookmarkMutation.mutate(post.id)}
                 />
               ))
             ) : (
@@ -478,31 +548,44 @@ export default function HomePage() {
             </Button>
           </Link>
         </div>
-        <div className="flex gap-4 overflow-x-auto px-5 no-scrollbar pb-2">
+        <div className="flex gap-3 overflow-x-auto px-5 no-scrollbar pb-2 snap-x snap-mandatory">
           {coachesLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="min-w-[160px]">
+              <div key={i} className="min-w-[140px] w-[140px] snap-start">
                 <CoachCardSkeleton />
               </div>
             ))
           ) : coaches && coaches.length > 0 ? (
-            coaches.slice(0, 6).map((coach: any) => (
-              <div key={coach.id} className="min-w-[160px]">
-                <CoachCard
-                  id={coach.id}
-                  name={coach.user?.fullName || "مربی"}
-                  avatar={coach.user?.avatar}
-                  specialty={coach.specialty}
-                  experience={coach.experience}
-                  pricePerSession={coach.pricePerSession}
-                  rating={coach.rating}
-                  reviewCount={coach.reviewCount || 0}
-                  clientCount={coach.clientCount || 0}
-                  isVerified={coach.isVerified}
-                  compact
-                />
-              </div>
-            ))
+            <>
+              {coaches.slice(0, 6).map((coach: any) => (
+                <div key={coach.id} className="min-w-[140px] w-[140px] snap-start">
+                  <CoachCard
+                    id={coach.id}
+                    name={coach.user?.fullName || "مربی"}
+                    avatar={coach.user?.avatar}
+                    specialty={coach.specialty}
+                    experience={coach.experience}
+                    pricePerSession={coach.pricePerSession}
+                    rating={coach.rating}
+                    reviewCount={coach.reviewCount || 0}
+                    clientCount={coach.clientCount || 0}
+                    isVerified={coach.isVerified}
+                    compact
+                  />
+                </div>
+              ))}
+              {/* Scroll hint */}
+              {coaches.length > 2 && (
+                <Link href="/coaches" className="min-w-[60px] flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                      <ChevronLeft className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px]">بیشتر</span>
+                  </div>
+                </Link>
+              )}
+            </>
           ) : (
             <p className="text-muted-foreground text-sm">مربیان به زودی اضافه می‌شوند</p>
           )}

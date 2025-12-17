@@ -10,7 +10,9 @@ import {
   // Nutrition tables
   nutritionPlans, meals, mealItems, mealLogs, pushSubscriptions, mealReminders,
   // Education tables
-  exerciseTutorials, articles, exerciseTutorialLikes, articleLikes,
+  exerciseTutorials, articles, exerciseTutorialLikes, articleLikes, bookmarks,
+  // Reports
+  reports,
   type User, type InsertUser, type CoachProfile, type InsertCoachProfile,
   type Program, type InsertProgram, type Post, type InsertPost,
   type Supplement, type InsertSupplement, type Challenge, type InsertChallenge,
@@ -20,6 +22,7 @@ import {
   type CoachLike, type CoachingRequest, type InsertCoachingRequest,
   type NutritionPlan, type Meal, type MealItem, type MealLog, type PushSubscription, type MealReminder,
   type ExerciseTutorial, type InsertExerciseTutorial, type Article, type InsertArticle,
+  type Report, type InsertReport,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { awardPoints } from "./points";
@@ -151,6 +154,7 @@ export interface IStorage {
   createExerciseTutorial(data: any): Promise<any>;
   incrementTutorialViews(id: string): Promise<void>;
   toggleTutorialLike(tutorialId: string, userId: string): Promise<{ liked: boolean; likeCount: number }>;
+  isTutorialLiked(tutorialId: string, userId: string): Promise<boolean>;
 
   // Education - Articles
   getArticles(category?: string): Promise<any[]>;
@@ -158,6 +162,15 @@ export interface IStorage {
   createArticle(data: any): Promise<any>;
   incrementArticleViews(id: string): Promise<void>;
   toggleArticleLike(articleId: string, userId: string): Promise<{ liked: boolean; likeCount: number }>;
+  isArticleLiked(articleId: string, userId: string): Promise<boolean>;
+
+  // Bookmarks
+  toggleBookmark(userId: string, itemId: string, itemType: string): Promise<{ bookmarked: boolean }>;
+  isBookmarked(userId: string, itemId: string, itemType: string): Promise<boolean>;
+  getUserBookmarks(userId: string): Promise<any[]>;
+
+  // Reports
+  createReport(data: InsertReport): Promise<Report>;
 }
 
 export class DbStorage implements IStorage {
@@ -545,21 +558,22 @@ export class DbStorage implements IStorage {
       .limit(limit)
       .offset(offset);
 
-    // Add isLiked for each post if user is logged in
+    // Add isLiked and isBookmarked for each post if user is logged in
     if (currentUserId) {
-      const postsWithLikes = await Promise.all(
+      const postsWithStatus = await Promise.all(
         result.map(async (post) => ({
           ...post,
           isLiked: await this.isPostLiked(currentUserId, post.id),
+          isBookmarked: await this.isBookmarked(currentUserId, post.id, 'post'),
         }))
       );
-      return postsWithLikes;
+      return postsWithStatus;
     }
 
     return result;
   }
 
-  async getPost(id: string): Promise<any | undefined> {
+  async getPost(id: string, currentUserId?: string): Promise<any | undefined> {
     const [result] = await db
       .select({
         id: posts.id,
@@ -580,6 +594,17 @@ export class DbStorage implements IStorage {
       .where(eq(posts.id, id))
       .limit(1);
 
+    if (!result) return undefined;
+
+    // Add isLiked and isBookmarked if user is logged in
+    if (currentUserId) {
+      return {
+        ...result,
+        isLiked: await this.isPostLiked(currentUserId, id),
+        isBookmarked: await this.isBookmarked(currentUserId, id, 'post'),
+      };
+    }
+
     return result;
   }
 
@@ -593,6 +618,10 @@ export class DbStorage implements IStorage {
   }
 
   async likePost(userId: string, postId: string): Promise<void> {
+    // Check if already liked
+    const alreadyLiked = await this.isPostLiked(userId, postId);
+    if (alreadyLiked) return;
+    
     await db.insert(likes).values({ userId, postId });
     await db.update(posts)
       .set({ likeCount: sql`${posts.likeCount} + 1` })
@@ -940,7 +969,7 @@ export class DbStorage implements IStorage {
       .where(eq(messages.conversationId, conversationId))
       .orderBy(messages.createdAt);
 
-    // Enrich messages with reply info
+    // Enrich messages with reply info and reactions
     const enrichedMessages = await Promise.all(result.map(async (msg) => {
       let replyTo = null;
       if (msg.replyToId) {
@@ -957,7 +986,11 @@ export class DbStorage implements IStorage {
           .limit(1);
         replyTo = replyMsg || null;
       }
-      return { ...msg, replyTo };
+
+      // Get reactions for this message
+      const reactions = await this.getMessageReactions(msg.id);
+
+      return { ...msg, replyTo, reactions };
     }));
 
     return enrichedMessages;
@@ -986,7 +1019,7 @@ export class DbStorage implements IStorage {
       replyTo = replyMsg || null;
     }
 
-    return { ...result, replyTo };
+    return { ...result, replyTo, reactions: [] };
   }
 
   async createConversation(data: InsertConversation): Promise<Conversation> {
@@ -1031,6 +1064,7 @@ export class DbStorage implements IStorage {
   }
 
   async addReaction(messageId: string, userId: string, emoji: string): Promise<any> {
+    // Check if user already has this exact reaction
     const [existing] = await db
       .select()
       .from(messageReactions)
@@ -1043,6 +1077,15 @@ export class DbStorage implements IStorage {
 
     if (existing) return existing;
 
+    // Remove any previous reaction from this user on this message (one reaction per user per message)
+    await db
+      .delete(messageReactions)
+      .where(and(
+        eq(messageReactions.messageId, messageId),
+        eq(messageReactions.userId, userId)
+      ));
+
+    // Add the new reaction
     const [result] = await db
       .insert(messageReactions)
       .values({ messageId, userId, emoji })
@@ -2413,6 +2456,18 @@ export class DbStorage implements IStorage {
     return { liked: !existing, likeCount: tutorial?.likeCount || 0 };
   }
 
+  async isTutorialLiked(tutorialId: string, userId: string): Promise<boolean> {
+    const [existing] = await db
+      .select()
+      .from(exerciseTutorialLikes)
+      .where(and(
+        eq(exerciseTutorialLikes.tutorialId, tutorialId),
+        eq(exerciseTutorialLikes.userId, userId)
+      ))
+      .limit(1);
+    return !!existing;
+  }
+
   // ==================== EDUCATION - ARTICLES ====================
 
   async getArticles(category?: string): Promise<any[]> {
@@ -2522,6 +2577,120 @@ export class DbStorage implements IStorage {
     return { liked: !existing, likeCount: article?.likeCount || 0 };
   }
 
+  async isArticleLiked(articleId: string, userId: string): Promise<boolean> {
+    const [existing] = await db
+      .select()
+      .from(articleLikes)
+      .where(and(
+        eq(articleLikes.articleId, articleId),
+        eq(articleLikes.userId, userId)
+      ))
+      .limit(1);
+    return !!existing;
+  }
+
+  // ==================== BOOKMARKS ====================
+
+  async toggleBookmark(userId: string, itemId: string, itemType: string): Promise<{ bookmarked: boolean }> {
+    const [existing] = await db
+      .select()
+      .from(bookmarks)
+      .where(and(
+        eq(bookmarks.userId, userId),
+        eq(bookmarks.itemId, itemId),
+        eq(bookmarks.itemType, itemType)
+      ))
+      .limit(1);
+
+    if (existing) {
+      await db.delete(bookmarks).where(eq(bookmarks.id, existing.id));
+      return { bookmarked: false };
+    } else {
+      await db.insert(bookmarks).values({ userId, itemId, itemType });
+      return { bookmarked: true };
+    }
+  }
+
+  async isBookmarked(userId: string, itemId: string, itemType: string): Promise<boolean> {
+    const [existing] = await db
+      .select()
+      .from(bookmarks)
+      .where(and(
+        eq(bookmarks.userId, userId),
+        eq(bookmarks.itemId, itemId),
+        eq(bookmarks.itemType, itemType)
+      ))
+      .limit(1);
+    return !!existing;
+  }
+
+  async getUserBookmarks(userId: string): Promise<any[]> {
+    const userBookmarks = await db
+      .select()
+      .from(bookmarks)
+      .where(eq(bookmarks.userId, userId))
+      .orderBy(desc(bookmarks.createdAt));
+
+    // Fetch details for each bookmark
+    const bookmarksWithDetails = await Promise.all(
+      userBookmarks.map(async (bookmark) => {
+        let item = null;
+        
+        if (bookmark.itemType === 'article') {
+          item = await this.getArticle(bookmark.itemId);
+        } else if (bookmark.itemType === 'tutorial') {
+          item = await this.getExerciseTutorial(bookmark.itemId);
+        } else if (bookmark.itemType === 'post') {
+          const [post] = await db
+            .select({
+              id: posts.id,
+              content: posts.content,
+              likeCount: posts.likeCount,
+              commentCount: posts.commentCount,
+              createdAt: posts.createdAt,
+              user: {
+                id: users.id,
+                fullName: users.fullName,
+                avatar: users.avatar,
+              },
+            })
+            .from(posts)
+            .innerJoin(users, eq(posts.userId, users.id))
+            .where(eq(posts.id, bookmark.itemId))
+            .limit(1);
+          item = post;
+        } else if (bookmark.itemType === 'question') {
+          const [question] = await db
+            .select({
+              id: questions.id,
+              title: questions.title,
+              content: questions.content,
+              voteCount: questions.voteCount,
+              answerCount: questions.answerCount,
+              createdAt: questions.createdAt,
+              user: {
+                id: users.id,
+                fullName: users.fullName,
+                avatar: users.avatar,
+              },
+            })
+            .from(questions)
+            .innerJoin(users, eq(questions.userId, users.id))
+            .where(eq(questions.id, bookmark.itemId))
+            .limit(1);
+          item = question;
+        }
+
+        return {
+          ...bookmark,
+          item,
+        };
+      })
+    );
+
+    return bookmarksWithDetails.filter(b => b.item !== null);
+  }
+
   async getCoachProfile(userId: string): Promise<CoachProfile | undefined> {
     const [profile] = await db
       .select()
@@ -2529,6 +2698,11 @@ export class DbStorage implements IStorage {
       .where(eq(coachProfiles.userId, userId))
       .limit(1);
     return profile;
+  }
+
+  async createReport(data: InsertReport): Promise<Report> {
+    const [report] = await db.insert(reports).values(data).returning();
+    return report;
   }
 }
 

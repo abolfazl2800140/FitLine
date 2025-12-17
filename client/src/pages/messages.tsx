@@ -209,20 +209,70 @@ export default function MessagesPage() {
   // Add reaction mutation
   const addReactionMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
-      return apiRequest("POST", `/api/messages/${messageId}/reactions`, { emoji });
+      const res = await apiRequest("POST", `/api/messages/${messageId}/reactions`, { emoji });
+      return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversation, "messages"] });
+    onMutate: async ({ messageId, emoji }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/conversations", selectedConversation, "messages"] });
+      
+      // Snapshot previous value
+      const previousMessages = queryClient.getQueryData<Message[]>(["/api/conversations", selectedConversation, "messages"]);
+      
+      // Optimistically update - remove previous reaction from this user, add new one
+      queryClient.setQueryData<Message[]>(["/api/conversations", selectedConversation, "messages"], (old) => {
+        if (!old) return old;
+        return old.map(msg => {
+          if (msg.id === messageId) {
+            // Remove any existing reaction from this user
+            const filteredReactions = (msg.reactions || []).filter(r => r.userId !== currentUser?.id);
+            const newReaction = { emoji, userId: currentUser?.id || '', userName: currentUser?.fullName || '' };
+            return { ...msg, reactions: [...filteredReactions, newReaction] };
+          }
+          return msg;
+        });
+      });
+      
+      return { previousMessages };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(["/api/conversations", selectedConversation, "messages"], context.previousMessages);
+      }
     },
   });
 
   // Remove reaction mutation
   const removeReactionMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
-      return apiRequest("DELETE", `/api/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`);
+      const res = await apiRequest("DELETE", `/api/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`);
+      return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversation, "messages"] });
+    onMutate: async ({ messageId, emoji }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/conversations", selectedConversation, "messages"] });
+      
+      const previousMessages = queryClient.getQueryData<Message[]>(["/api/conversations", selectedConversation, "messages"]);
+      
+      queryClient.setQueryData<Message[]>(["/api/conversations", selectedConversation, "messages"], (old) => {
+        if (!old) return old;
+        return old.map(msg => {
+          if (msg.id === messageId) {
+            return { 
+              ...msg, 
+              reactions: (msg.reactions || []).filter(r => !(r.emoji === emoji && r.userId === currentUser?.id))
+            };
+          }
+          return msg;
+        });
+      });
+      
+      return { previousMessages };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousMessages) {
+        queryClient.setQueryData(["/api/conversations", selectedConversation, "messages"], context.previousMessages);
+      }
     },
   });
 
@@ -729,8 +779,8 @@ export default function MessagesPage() {
                             {conv.participant?.fullName}
                           </p>
                         </div>
-                        <p className="text-sm text-muted-foreground truncate text-right">
-                          {conv.lastMessage || "بدون پیام"}
+                        <p className="text-sm text-muted-foreground truncate text-right max-w-[200px]">
+                          {conv.lastMessage ? (conv.lastMessage.length > 30 ? conv.lastMessage.substring(0, 30) + "..." : conv.lastMessage) : "بدون پیام"}
                         </p>
                       </div>
                       {conv.unreadCount && conv.unreadCount > 0 && (

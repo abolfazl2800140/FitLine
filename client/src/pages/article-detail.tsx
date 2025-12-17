@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  ChevronRight, Heart, Eye, Clock, BookOpen, Share2
+  ChevronRight, Heart, Eye, Clock, BookOpen, Share2, Bookmark
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toPersianNumber, formatRelativeTime } from "@/lib/persian";
@@ -38,10 +38,52 @@ export default function ArticleDetailPage() {
 
   const likeMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/articles/${id}/like`, { method: "POST" });
+      return apiRequest("POST", `/api/articles/${id}/like`);
+    },
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/articles", id] });
+
+      // Snapshot the previous value
+      const previousArticle = queryClient.getQueryData(["/api/articles", id]);
+
+      // Optimistically update
+      queryClient.setQueryData(["/api/articles", id], (old: any) => ({
+        ...old,
+        isLiked: !old?.isLiked,
+        likeCount: old?.isLiked ? (old?.likeCount || 1) - 1 : (old?.likeCount || 0) + 1,
+      }));
+
+      return { previousArticle };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousArticle) {
+        queryClient.setQueryData(["/api/articles", id], context.previousArticle);
+      }
+    },
+  });
+
+  const bookmarkMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/articles/${id}/bookmark`);
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["/api/articles", id] });
+      const previousArticle = queryClient.getQueryData(["/api/articles", id]);
+      queryClient.setQueryData(["/api/articles", id], (old: any) => ({
+        ...old,
+        isBookmarked: !old?.isBookmarked,
+      }));
+      return { previousArticle };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousArticle) {
+        queryClient.setQueryData(["/api/articles", id], context.previousArticle);
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/articles", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookmarks"] });
     },
   });
 
@@ -98,10 +140,10 @@ export default function ArticleDetailPage() {
             <Button
               variant="ghost"
               size="icon"
-              className={cn(likeMutation.isPending && "opacity-50")}
-              onClick={() => likeMutation.mutate()}
+              className={cn(bookmarkMutation.isPending && "opacity-50")}
+              onClick={() => bookmarkMutation.mutate()}
             >
-              <Heart className={cn("h-5 w-5", article.isLiked && "fill-red-500 text-red-500")} />
+              <Bookmark className={cn("h-5 w-5", article.isBookmarked && "fill-primary text-primary")} />
             </Button>
           </div>
         </div>
@@ -150,10 +192,14 @@ export default function ArticleDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Heart className="h-4 w-4" />
+            <button 
+              className={cn("flex items-center gap-1 transition-colors", article.isLiked && "text-red-500")}
+              onClick={() => likeMutation.mutate()}
+              disabled={likeMutation.isPending}
+            >
+              <Heart className={cn("h-4 w-4", article.isLiked && "fill-current")} />
               {toPersianNumber(article.likeCount || 0)}
-            </span>
+            </button>
             <span className="flex items-center gap-1">
               <Eye className="h-4 w-4" />
               {toPersianNumber(article.viewCount || 0)}
