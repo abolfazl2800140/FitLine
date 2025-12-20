@@ -2,7 +2,7 @@ import { db } from "./db";
 import { eq, desc, and, or, sql, like, ilike, gte, lte, isNull, not } from "drizzle-orm";
 import {
   users, coachProfiles, programs, workoutDays, exercises, userPrograms, workoutLogs,
-  posts, comments, likes, follows, conversations, messages, messageReactions,
+  posts, comments, likes, follows, followRequests, conversations, messages, messageReactions,
   supplements, cartItems, orders, challenges, challengeParticipants,
   leagues, leagueMembers, badges, userBadges, progressPhotos, progressMetrics,
   reviews, supplementReviews, questions, answers, coachLikes,
@@ -36,6 +36,7 @@ export interface IStorage {
   getUserProfile(id: string): Promise<any | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, data: Partial<User>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<void>;
   followUser(followerId: string, followingId: string): Promise<void>;
   unfollowUser(followerId: string, followingId: string): Promise<void>;
   isFollowing(followerId: string, followingId: string): Promise<boolean>;
@@ -206,6 +207,8 @@ export class DbStorage implements IStorage {
         role: users.role,
         gender: users.gender,
         createdAt: users.createdAt,
+        publicProfile: users.publicProfile,
+        showProgress: users.showProgress,
       })
       .from(users)
       .where(eq(users.id, id))
@@ -292,6 +295,21 @@ export class DbStorage implements IStorage {
     return user;
   }
 
+  async deleteUser(id: string): Promise<void> {
+    // Delete user's related data first (cascade)
+    await db.delete(follows).where(or(eq(follows.followerId, id), eq(follows.followingId, id)));
+    await db.delete(likes).where(eq(likes.userId, id));
+    await db.delete(comments).where(eq(comments.userId, id));
+    await db.delete(posts).where(eq(posts.userId, id));
+    await db.delete(cartItems).where(eq(cartItems.userId, id));
+    await db.delete(userPrograms).where(eq(userPrograms.userId, id));
+    await db.delete(progressPhotos).where(eq(progressPhotos.userId, id));
+    await db.delete(progressMetrics).where(eq(progressMetrics.userId, id));
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, id));
+    // Finally delete the user
+    await db.delete(users).where(eq(users.id, id));
+  }
+
   async followUser(followerId: string, followingId: string): Promise<void> {
     const existing = await this.isFollowing(followerId, followingId);
     if (!existing) {
@@ -329,6 +347,119 @@ export class DbStorage implements IStorage {
       followers: followersResult?.count || 0,
       following: followingResult?.count || 0,
     };
+  }
+
+  // Follow Requests
+  async createFollowRequest(requesterId: string, targetId: string): Promise<any> {
+    // Check if already following
+    const alreadyFollowing = await this.isFollowing(requesterId, targetId);
+    if (alreadyFollowing) {
+      throw new Error('Already following this user');
+    }
+
+    // Check if request already exists
+    const [existing] = await db
+      .select()
+      .from(followRequests)
+      .where(and(
+        eq(followRequests.requesterId, requesterId),
+        eq(followRequests.targetId, targetId),
+        eq(followRequests.status, 'pending')
+      ))
+      .limit(1);
+
+    if (existing) {
+      throw new Error('Follow request already sent');
+    }
+
+    const [request] = await db.insert(followRequests).values({
+      requesterId,
+      targetId,
+    }).returning();
+
+    return request;
+  }
+
+  async acceptFollowRequest(requestId: string, targetId: string): Promise<void> {
+    const [request] = await db
+      .select()
+      .from(followRequests)
+      .where(and(
+        eq(followRequests.id, requestId),
+        eq(followRequests.targetId, targetId),
+        eq(followRequests.status, 'pending')
+      ))
+      .limit(1);
+
+    if (!request) {
+      throw new Error('Follow request not found');
+    }
+
+    // Update request status
+    await db.update(followRequests)
+      .set({ status: 'accepted' })
+      .where(eq(followRequests.id, requestId));
+
+    // Create follow relationship
+    await db.insert(follows).values({
+      followerId: request.requesterId,
+      followingId: request.targetId,
+    });
+  }
+
+  async rejectFollowRequest(requestId: string, targetId: string): Promise<void> {
+    await db.update(followRequests)
+      .set({ status: 'rejected' })
+      .where(and(
+        eq(followRequests.id, requestId),
+        eq(followRequests.targetId, targetId)
+      ));
+  }
+
+  async cancelFollowRequest(requestId: string, requesterId: string): Promise<void> {
+    await db.delete(followRequests)
+      .where(and(
+        eq(followRequests.id, requestId),
+        eq(followRequests.requesterId, requesterId)
+      ));
+  }
+
+  async getPendingFollowRequests(userId: string): Promise<any[]> {
+    const requests = await db
+      .select({
+        id: followRequests.id,
+        requesterId: followRequests.requesterId,
+        createdAt: followRequests.createdAt,
+        requester: {
+          id: users.id,
+          fullName: users.fullName,
+          username: users.username,
+          avatar: users.avatar,
+        },
+      })
+      .from(followRequests)
+      .innerJoin(users, eq(followRequests.requesterId, users.id))
+      .where(and(
+        eq(followRequests.targetId, userId),
+        eq(followRequests.status, 'pending')
+      ))
+      .orderBy(desc(followRequests.createdAt));
+
+    return requests;
+  }
+
+  async getFollowRequestStatus(requesterId: string, targetId: string): Promise<string | null> {
+    const [request] = await db
+      .select({ status: followRequests.status })
+      .from(followRequests)
+      .where(and(
+        eq(followRequests.requesterId, requesterId),
+        eq(followRequests.targetId, targetId)
+      ))
+      .orderBy(desc(followRequests.createdAt))
+      .limit(1);
+
+    return request?.status || null;
   }
 
   async createProgressPhoto(data: { userId: string; imageUrl: string; weight?: string | null; bodyFat?: string | null; notes?: string | null }): Promise<any> {
@@ -537,6 +668,7 @@ export class DbStorage implements IStorage {
 
   // Posts
   async getPosts(limit = 20, offset = 0, currentUserId?: string): Promise<any[]> {
+    // Get all posts (privacy only affects profile page, not feed)
     const result = await db
       .select({
         id: posts.id,

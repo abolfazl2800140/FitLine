@@ -47,10 +47,10 @@ const difficultyLabels: Record<string, string> = {
 };
 
 const difficultyColors: Record<string, string> = {
-  beginner: "bg-green-500/10 text-green-600",
-  intermediate: "bg-yellow-500/10 text-yellow-600",
-  advanced: "bg-orange-500/10 text-orange-600",
-  expert: "bg-red-500/10 text-red-600",
+  beginner: "bg-green-500 text-white font-bold shadow-lg",
+  intermediate: "bg-yellow-500 text-white font-bold shadow-lg",
+  advanced: "bg-orange-500 text-white font-bold shadow-lg",
+  expert: "bg-red-500 text-white font-bold shadow-lg",
 };
 
 export default function LearnPage() {
@@ -226,7 +226,7 @@ function TutorialCard({
           )}
           <Badge 
             className={cn(
-              "absolute top-2 right-2 text-[10px]",
+              "absolute top-2 right-2 text-xs px-2 py-1",
               difficultyColors[tutorial.difficulty]
             )}
           >

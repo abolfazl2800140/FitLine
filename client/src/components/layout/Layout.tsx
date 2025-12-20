@@ -43,7 +43,10 @@ export function Layout({ children }: LayoutProps) {
   const isTutorialDetailPage = location.startsWith("/learn/tutorial/");
   const isArticleDetailPage = location.startsWith("/learn/article/");
   const isQuestionDetailPage = /^\/education\/[^/]+$/.test(location) && location !== "/education/ask";
-  const hideBottomNav = isCoachDetailPage || isSupplementDetailPage || isPostDetailPage || isTutorialDetailPage || isArticleDetailPage || isQuestionDetailPage;
+  const isNutritionBuilderPage = location.startsWith("/coach/nutrition-builder");
+  const isProgramBuilderPage = location.startsWith("/coach/program-builder");
+  const isUserProfilePage = location.startsWith("/user/");
+  const hideBottomNav = isCoachDetailPage || isSupplementDetailPage || isPostDetailPage || isTutorialDetailPage || isArticleDetailPage || isQuestionDetailPage || isNutritionBuilderPage || isProgramBuilderPage || isUserProfilePage;
 
   return (
     <div className="min-h-screen bg-background">

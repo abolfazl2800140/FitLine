@@ -177,7 +177,11 @@ export default function CoachStudentsPage() {
                     </Card>
                 ) : (
                     filteredStudents.map((student) => (
-                        <Card key={student.id} className="overflow-hidden">
+                        <Card
+                            key={student.id}
+                            className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
+                            onClick={() => setLocation(`/user/${student.id}`)}
+                        >
                             <CardContent className="p-4">
                                 <div className="flex items-start gap-3">
                                     <Avatar className="h-12 w-12">
@@ -232,28 +236,29 @@ export default function CoachStudentsPage() {
                                     {/* Actions */}
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem className="gap-2" onClick={() => setLocation("/messages")}>
+                                        <DropdownMenuContent align="end" className="text-right" onClick={(e) => e.stopPropagation()}>
+                                            <DropdownMenuItem className="flex-row-reverse gap-2" onClick={() => setLocation("/messages")}>
                                                 <MessageCircle className="h-4 w-4" />
                                                 ارسال پیام
                                             </DropdownMenuItem>
-                                            <Link href={`/coach/program-builder?student=${student.id}`}>
-                                                <DropdownMenuItem className="gap-2">
-                                                    <PenSquare className="h-4 w-4" />
-                                                    برنامه تمرینی
-                                                </DropdownMenuItem>
-                                            </Link>
-                                            <Link href={`/coach/nutrition-builder?studentId=${student.id}`}>
-                                                <DropdownMenuItem className="gap-2">
-                                                    <Apple className="h-4 w-4" />
-                                                    برنامه تغذیه
-                                                </DropdownMenuItem>
-                                            </Link>
-                                            <DropdownMenuItem className="gap-2" onClick={() => setLocation(`/user/${student.id}`)}>
+                                            <DropdownMenuItem className="flex-row-reverse gap-2" onClick={() => setLocation(`/coach/program-builder?student=${student.id}`)}>
+                                                <PenSquare className="h-4 w-4" />
+                                                برنامه تمرینی
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem className="flex-row-reverse gap-2" onClick={() => setLocation(`/coach/nutrition-builder?studentId=${student.id}`)}>
+                                                <Apple className="h-4 w-4" />
+                                                برنامه تغذیه
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem className="flex-row-reverse gap-2" onClick={() => setLocation(`/user/${student.id}`)}>
                                                 <TrendingUp className="h-4 w-4" />
                                                 مشاهده پروفایل
                                             </DropdownMenuItem>

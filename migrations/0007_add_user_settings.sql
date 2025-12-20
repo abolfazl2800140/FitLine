@@ -1,0 +1,6 @@
+-- Add user settings columns
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_workout BOOLEAN DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_messages BOOLEAN DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_social BOOLEAN DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS public_profile BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS show_progress BOOLEAN DEFAULT true;

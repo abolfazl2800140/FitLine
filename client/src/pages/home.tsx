@@ -24,6 +24,7 @@ import {
   GraduationCap,
   Settings,
   User,
+  Target,
 } from "lucide-react";
 import CoachHomePage from "@/pages/coach/home";
 import { PullToRefresh } from "@/components/ui/pull-to-refresh";

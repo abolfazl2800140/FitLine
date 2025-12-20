@@ -28,6 +28,12 @@ export const users = pgTable("users", {
   weight: decimal("weight", { precision: 5, scale: 2 }),
   bodyFat: decimal("body_fat", { precision: 4, scale: 1 }),
   points: integer("points").default(0).notNull(),
+  // User Settings
+  notifyWorkout: boolean("notify_workout").default(true),
+  notifyMessages: boolean("notify_messages").default(true),
+  notifySocial: boolean("notify_social").default(true),
+  publicProfile: boolean("public_profile").default(false),
+  showProgress: boolean("show_progress").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -137,6 +143,16 @@ export const follows = pgTable("follows", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   followerId: varchar("follower_id", { length: 36 }).notNull().references(() => users.id),
   followingId: varchar("following_id", { length: 36 }).notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const followRequestStatusEnum = pgEnum('follow_request_status', ['pending', 'accepted', 'rejected']);
+
+export const followRequests = pgTable("follow_requests", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  requesterId: varchar("requester_id", { length: 36 }).notNull().references(() => users.id),
+  targetId: varchar("target_id", { length: 36 }).notNull().references(() => users.id),
+  status: followRequestStatusEnum("status").default('pending').notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

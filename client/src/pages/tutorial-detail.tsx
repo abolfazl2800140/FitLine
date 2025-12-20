@@ -35,10 +35,10 @@ const difficultyLabels: Record<string, string> = {
 };
 
 const difficultyColors: Record<string, string> = {
-  beginner: "bg-green-500/10 text-green-600",
-  intermediate: "bg-yellow-500/10 text-yellow-600",
-  advanced: "bg-orange-500/10 text-orange-600",
-  expert: "bg-red-500/10 text-red-600",
+  beginner: "bg-green-500 text-white font-bold",
+  intermediate: "bg-yellow-500 text-white font-bold",
+  advanced: "bg-orange-500 text-white font-bold",
+  expert: "bg-red-500 text-white font-bold",
 };
 
 export default function TutorialDetailPage() {

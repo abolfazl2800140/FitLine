@@ -76,6 +76,14 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
             });
         });
 
+        // New follower
+        const unsubFollower = subscribe('new_follower', (msg) => {
+            toast({
+                title: '👤 دنبال‌کننده جدید',
+                description: `${msg.follower?.fullName} شما را دنبال کرد`,
+            });
+        });
+
         return () => {
             unsubMessage();
             unsubAccepted();
@@ -85,6 +93,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
             unsubComment();
             unsubNutrition();
             unsubProgram();
+            unsubFollower();
         };
     }, [subscribe, toast]);
 

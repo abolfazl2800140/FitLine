@@ -93,6 +93,8 @@ const persianDays = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنب�
 export default function ProgramBuilderPage() {
     const { toast } = useToast();
     const [, setLocation] = useLocation();
+    const searchParams = new URLSearchParams(window.location.search);
+    const studentIdFromUrl = searchParams.get("student");
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [programTitle, setProgramTitle] = useState("");
     const [weeks, setWeeks] = useState(4);
@@ -162,6 +164,16 @@ export default function ProgramBuilderPage() {
             !(students || []).some((s: any) => s.id === r.id)
         ),
     ];
+
+    // Auto-select student from URL param
+    useEffect(() => {
+        if (studentIdFromUrl && allStudents.length > 0 && !selectedStudent) {
+            const student = allStudents.find((s: any) => s.id === studentIdFromUrl);
+            if (student) {
+                setSelectedStudent(student);
+            }
+        }
+    }, [studentIdFromUrl, allStudents, selectedStudent]);
 
     const addDay = () => {
         const dayNum = days.length + 1;

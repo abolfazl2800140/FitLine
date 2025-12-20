@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TimePicker } from "@/components/ui/time-picker";
 import { useToast } from "@/hooks/use-toast";
 import {
     Plus, Trash2, ChevronRight, Apple, Clock,
@@ -363,10 +364,9 @@ export default function NutritionBuilderPage() {
                                                 <Clock className="w-4 h-4" />
                                                 ساعت
                                             </Label>
-                                            <Input
-                                                type="time"
+                                            <TimePicker
                                                 value={meal.scheduledTime}
-                                                onChange={(e) => updateMeal(mealIndex, { scheduledTime: e.target.value })}
+                                                onChange={(value) => updateMeal(mealIndex, { scheduledTime: value })}
                                             />
                                         </div>
                                     </div>

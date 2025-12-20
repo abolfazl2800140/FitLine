@@ -221,7 +221,12 @@ function handleCacheUpdate(message: WebSocketMessage, queryClient: any) {
 
         // New follower
         case 'new_follower':
-            queryClient.invalidateQueries({ queryKey: ['/api/users', message.userId] });
+            // Invalidate current user's profile to update follower count
+            queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+            // Also invalidate any user profile queries
+            queryClient.invalidateQueries({ predicate: (query) => 
+                Array.isArray(query.queryKey) && query.queryKey[0] === '/api/users'
+            });
             break;
 
         // New nutrition plan

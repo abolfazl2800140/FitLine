@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,10 +14,8 @@ import {
     ArrowRight,
     Lock,
     Bell,
-    BellOff,
     Moon,
     Sun,
-    Monitor,
     Eye,
     EyeOff,
     Shield,
@@ -52,22 +50,22 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+interface UserSettings {
+    notifications: {
+        workout: boolean;
+        messages: boolean;
+        social: boolean;
+    };
+    privacy: {
+        publicProfile: boolean;
+        showProgress: boolean;
+    };
+}
+
 export default function SettingsPage() {
     const [, setLocation] = useLocation();
     const { toast } = useToast();
     const { theme, setTheme } = useTheme();
-
-    // Settings state
-    const [notifications, setNotifications] = useState({
-        workout: true,
-        messages: true,
-        social: true,
-        challenges: false,
-    });
-    const [privacy, setPrivacy] = useState({
-        publicProfile: true,
-        showProgress: true,
-    });
 
     // Password change state
     const [passwordDialog, setPasswordDialog] = useState(false);
@@ -78,9 +76,34 @@ export default function SettingsPage() {
     });
     const [showPasswords, setShowPasswords] = useState(false);
     const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deletePassword, setDeletePassword] = useState("");
 
     const { data: user } = useQuery<any>({
         queryKey: ["/api/auth/me"],
+    });
+
+    // Fetch user settings
+    const { data: settings, isLoading: settingsLoading } = useQuery<UserSettings>({
+        queryKey: ["/api/user/settings"],
+        enabled: !!user,
+    });
+
+    // Update settings mutation
+    const updateSettingsMutation = useMutation({
+        mutationFn: async (data: Partial<UserSettings>) => {
+            return apiRequest("PATCH", "/api/user/settings", data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/user/settings"] });
+        },
+        onError: () => {
+            toast({
+                title: "خطا",
+                description: "خطا در ذخیره تنظیمات",
+                variant: "destructive",
+            });
+        },
     });
 
     const logoutMutation = useMutation({
@@ -93,6 +116,48 @@ export default function SettingsPage() {
             toast({
                 title: "خروج موفق",
                 description: "از حساب کاربری خارج شدید",
+            });
+        },
+    });
+
+    const changePasswordMutation = useMutation({
+        mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+            return apiRequest("POST", "/api/user/change-password", data);
+        },
+        onSuccess: () => {
+            toast({
+                title: "رمز عبور تغییر کرد",
+                description: "رمز عبور جدید با موفقیت ذخیره شد",
+            });
+            setPasswordDialog(false);
+            setPasswords({ current: "", new: "", confirm: "" });
+        },
+        onError: (error: any) => {
+            toast({
+                title: "خطا",
+                description: error.message || "خطا در تغییر رمز عبور",
+                variant: "destructive",
+            });
+        },
+    });
+
+    const deleteAccountMutation = useMutation({
+        mutationFn: async (password: string) => {
+            return apiRequest("DELETE", "/api/user/account", { password });
+        },
+        onSuccess: () => {
+            queryClient.clear();
+            setLocation("/");
+            toast({
+                title: "حساب حذف شد",
+                description: "حساب کاربری شما با موفقیت حذف شد",
+            });
+        },
+        onError: (error: any) => {
+            toast({
+                title: "خطا",
+                description: error.message || "خطا در حذف حساب کاربری",
+                variant: "destructive",
             });
         },
     });
@@ -114,23 +179,40 @@ export default function SettingsPage() {
             });
             return;
         }
-        // TODO: API call to change password
-        toast({
-            title: "رمز عبور تغییر کرد",
-            description: "رمز عبور جدید با موفقیت ذخیره شد",
+        changePasswordMutation.mutate({
+            currentPassword: passwords.current,
+            newPassword: passwords.new,
         });
-        setPasswordDialog(false);
-        setPasswords({ current: "", new: "", confirm: "" });
     };
 
     const handleDeleteAccount = () => {
-        // TODO: API call to delete account
-        toast({
-            title: "حساب حذف شد",
-            description: "حساب کاربری شما با موفقیت حذف شد",
+        if (!deletePassword) {
+            toast({
+                title: "خطا",
+                description: "لطفاً رمز عبور خود را وارد کنید",
+                variant: "destructive",
+            });
+            return;
+        }
+        deleteAccountMutation.mutate(deletePassword);
+    };
+
+    const updateNotification = (key: keyof UserSettings['notifications'], value: boolean) => {
+        updateSettingsMutation.mutate({
+            notifications: {
+                ...settings?.notifications,
+                [key]: value,
+            },
         });
-        queryClient.clear();
-        setLocation("/");
+    };
+
+    const updatePrivacy = (key: keyof UserSettings['privacy'], value: boolean) => {
+        updateSettingsMutation.mutate({
+            privacy: {
+                ...settings?.privacy,
+                [key]: value,
+            },
+        });
     };
 
     return (
@@ -223,8 +305,8 @@ export default function SettingsPage() {
                                     <Button variant="outline" onClick={() => setPasswordDialog(false)}>
                                         انصراف
                                     </Button>
-                                    <Button onClick={handlePasswordChange}>
-                                        ذخیره
+                                    <Button onClick={handlePasswordChange} disabled={changePasswordMutation.isPending}>
+                                        {changePasswordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "ذخیره"}
                                     </Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -250,8 +332,9 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <Switch
-                                checked={notifications.workout}
-                                onCheckedChange={(checked) => setNotifications({ ...notifications, workout: checked })}
+                                checked={settings?.notifications?.workout ?? true}
+                                onCheckedChange={(checked) => updateNotification('workout', checked)}
+                                disabled={settingsLoading || updateSettingsMutation.isPending}
                             />
                         </div>
                         <Separator />
@@ -264,8 +347,9 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <Switch
-                                checked={notifications.messages}
-                                onCheckedChange={(checked) => setNotifications({ ...notifications, messages: checked })}
+                                checked={settings?.notifications?.messages ?? true}
+                                onCheckedChange={(checked) => updateNotification('messages', checked)}
+                                disabled={settingsLoading || updateSettingsMutation.isPending}
                             />
                         </div>
                         <Separator />
@@ -278,8 +362,9 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <Switch
-                                checked={notifications.social}
-                                onCheckedChange={(checked) => setNotifications({ ...notifications, social: checked })}
+                                checked={settings?.notifications?.social ?? true}
+                                onCheckedChange={(checked) => updateNotification('social', checked)}
+                                disabled={settingsLoading || updateSettingsMutation.isPending}
                             />
                         </div>
                     </CardContent>
@@ -310,7 +395,7 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Privacy Section */}
+                {/* Privacy Section - Only show progress toggle */}
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
@@ -318,26 +403,16 @@ export default function SettingsPage() {
                             حریم خصوصی
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-medium text-sm">پروفایل عمومی</p>
-                                <p className="text-xs text-muted-foreground">همه می‌توانند پروفایل شما را ببینند</p>
-                            </div>
-                            <Switch
-                                checked={privacy.publicProfile}
-                                onCheckedChange={(checked) => setPrivacy({ ...privacy, publicProfile: checked })}
-                            />
-                        </div>
-                        <Separator />
+                    <CardContent>
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="font-medium text-sm">نمایش پیشرفت</p>
-                                <p className="text-xs text-muted-foreground">نمایش آمار و پیشرفت به دیگران</p>
+                                <p className="text-xs text-muted-foreground">نمایش عکس‌ها و آمار پیشرفت به دیگران</p>
                             </div>
                             <Switch
-                                checked={privacy.showProgress}
-                                onCheckedChange={(checked) => setPrivacy({ ...privacy, showProgress: checked })}
+                                checked={settings?.privacy?.showProgress ?? true}
+                                onCheckedChange={(checked) => updatePrivacy('showProgress', checked)}
+                                disabled={settingsLoading || updateSettingsMutation.isPending}
                             />
                         </div>
                     </CardContent>
@@ -430,31 +505,57 @@ export default function SettingsPage() {
                         </AlertDialogContent>
                     </AlertDialog>
 
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" className="w-full h-12 gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
-                                <Trash2 className="h-5 w-5" />
-                                حذف حساب کاربری
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent dir="rtl">
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>حذف حساب کاربری</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    آیا مطمئن هستید؟ این عمل غیرقابل بازگشت است و تمام اطلاعات شما حذف خواهد شد.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="gap-2">
-                                <AlertDialogCancel>انصراف</AlertDialogCancel>
-                                <AlertDialogAction
+                    {/* Delete Account Button */}
+                    <Button
+                        variant="ghost"
+                        className="w-full h-12 gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeleteDialogOpen(true)}
+                    >
+                        <Trash2 className="h-5 w-5" />
+                        حذف حساب کاربری
+                    </Button>
+
+                    {/* Delete Account Dialog */}
+                    <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                        <DialogContent dir="rtl">
+                            <DialogHeader>
+                                <DialogTitle>حذف حساب کاربری</DialogTitle>
+                                <DialogDescription>
+                                    این عمل غیرقابل بازگشت است و تمام اطلاعات شما حذف خواهد شد.
+                                    برای تأیید، رمز عبور خود را وارد کنید.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                                <Label>رمز عبور</Label>
+                                <Input
+                                    type="password"
+                                    value={deletePassword}
+                                    onChange={(e) => setDeletePassword(e.target.value)}
+                                    placeholder="رمز عبور خود را وارد کنید"
+                                    className="mt-2"
+                                />
+                            </div>
+                            <DialogFooter className="gap-2">
+                                <Button variant="outline" onClick={() => {
+                                    setDeleteDialogOpen(false);
+                                    setDeletePassword("");
+                                }}>
+                                    انصراف
+                                </Button>
+                                <Button
+                                    variant="destructive"
                                     onClick={handleDeleteAccount}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    disabled={deleteAccountMutation.isPending}
                                 >
-                                    حذف حساب
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                                    {deleteAccountMutation.isPending ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        "حذف حساب"
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
 
             </div>

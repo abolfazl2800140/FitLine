@@ -21,6 +21,7 @@ import {
     UserPlus,
     UserMinus,
     Users,
+    Clock,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
