@@ -12,6 +12,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { CoachCard, CoachCardSkeleton } from "@/components/ui/coach-card";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { translations } from "@/lib/persian";
 import { Search, SlidersHorizontal, X, Users } from "lucide-react";
 import {
@@ -88,14 +89,7 @@ export default function CoachesPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
-        <div className="container px-4 md:px-6 h-14 flex items-center justify-center">
-          <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
-        </div>
-      </div>
-      {/* Spacer for fixed header */}
-      <div className="h-14" />
+      <PageHeader />
 
       <div className="container px-4 md:px-6 py-6">
 
@@ -291,7 +285,7 @@ export default function CoachesPage() {
               <p className="text-muted-foreground mb-4">
                 با تغییر فیلترها دوباره جستجو کنید
               </p>
-              <Button variant="outline" onClick={clearFilters}>
+              <Button variant="outline" className="min-h-[44px]" onClick={clearFilters}>
                 پاک کردن فیلترها
               </Button>
             </div>

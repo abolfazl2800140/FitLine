@@ -123,7 +123,7 @@ export default function ArticleDetailPage() {
               variant="ghost"
               size="icon"
               className="shrink-0"
-              onClick={() => setLocation("/learn")}
+              onClick={() => setLocation("/learn?tab=articles")}
             >
               <ChevronRight className="h-5 w-5" />
             </Button>

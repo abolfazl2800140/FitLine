@@ -10,8 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/hooks/use-theme";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
-    ArrowRight,
     Lock,
     Bell,
     Moon,
@@ -217,23 +217,7 @@ export default function SettingsPage() {
 
     return (
         <div className="min-h-screen bg-background" dir="rtl">
-            {/* Header */}
-            <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
-                <div className="flex items-center justify-between px-4 h-14 relative">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setLocation("/profile")}
-                        className="rounded-xl text-primary-foreground hover:bg-white/20"
-                    >
-                        <ArrowRight className="h-5 w-5" />
-                    </Button>
-                    <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
-                    <div className="w-10" />
-                </div>
-            </div>
-            {/* Spacer for fixed header */}
-            <div className="h-14" />
+            <PageHeader showBack backPath="/profile" />
 
             <div className="container max-w-2xl px-4 py-6 space-y-6">
 
@@ -472,7 +456,7 @@ export default function SettingsPage() {
                 <div className="space-y-3">
                     <Button
                         variant="outline"
-                        className="w-full h-12 gap-2"
+                        className="w-full h-12 gap-2 min-h-[48px]"
                         onClick={() => setLogoutDialogOpen(true)}
                         disabled={logoutMutation.isPending}
                     >
@@ -494,10 +478,10 @@ export default function SettingsPage() {
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter className="gap-2">
-                                <AlertDialogCancel>انصراف</AlertDialogCancel>
+                                <AlertDialogCancel className="min-h-[44px]">انصراف</AlertDialogCancel>
                                 <AlertDialogAction
                                     onClick={() => logoutMutation.mutate()}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 min-h-[44px]"
                                 >
                                     بله، خارج شو
                                 </AlertDialogAction>
@@ -508,7 +492,7 @@ export default function SettingsPage() {
                     {/* Delete Account Button */}
                     <Button
                         variant="ghost"
-                        className="w-full h-12 gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="w-full h-12 gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[48px]"
                         onClick={() => setDeleteDialogOpen(true)}
                     >
                         <Trash2 className="h-5 w-5" />

@@ -117,7 +117,7 @@ export default function CoachDetailPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setLocation("/coaches")}
-                        className="rounded-full text-primary-foreground hover:bg-white/20"
+                        className="rounded-full text-primary-foreground hover:bg-white/20 h-11 w-11"
                     >
                         <ArrowRight className="h-5 w-5" />
                     </Button>
@@ -125,13 +125,13 @@ export default function CoachDetailPage() {
                     <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
 
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="rounded-full text-primary-foreground hover:bg-white/20">
+                        <Button variant="ghost" size="icon" className="rounded-full text-primary-foreground hover:bg-white/20 h-11 w-11">
                             <Share2 className="h-5 w-5" />
                         </Button>
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="rounded-full text-primary-foreground hover:bg-white/20"
+                            className="rounded-full text-primary-foreground hover:bg-white/20 h-11 w-11"
                             onClick={() => likeMutation.mutate()}
                             disabled={likeMutation.isPending}
                         >
@@ -311,7 +311,10 @@ export default function CoachDetailPage() {
                     ) : (
                         <div className="text-center py-12">
                             <Dumbbell className="h-14 w-14 text-muted-foreground/50 mx-auto mb-4" />
-                            <p className="text-muted-foreground">برنامه‌ای هنوز اضافه نشده</p>
+                            <p className="text-muted-foreground mb-3">برنامه‌ای هنوز اضافه نشده</p>
+                            <Button variant="outline" className="min-h-[44px]" onClick={() => setLocation("/coaches")}>
+                              مشاهده مربیان دیگر
+                            </Button>
                         </div>
                     )}
                 </TabsContent>
@@ -359,7 +362,8 @@ export default function CoachDetailPage() {
                     ) : (
                         <div className="text-center py-12">
                             <MessageCircle className="h-14 w-14 text-muted-foreground/50 mx-auto mb-4" />
-                            <p className="text-muted-foreground">هنوز نظری ثبت نشده</p>
+                            <p className="text-muted-foreground mb-3">هنوز نظری ثبت نشده</p>
+                            <p className="text-sm text-muted-foreground">اولین نفری باشید که نظر می‌دهید</p>
                         </div>
                     )}
                 </TabsContent>
@@ -380,7 +384,7 @@ export default function CoachDetailPage() {
                             </span>
                         </p>
                     </div>
-                    <Button size="lg" className="gap-2 px-8" onClick={() => setLocation(`/coaches/${params.id}/request`)}>
+                    <Button size="lg" className="gap-2 px-8 min-h-[48px]" onClick={() => setLocation(`/coaches/${params.id}/request`)}>
                         <Calendar className="h-5 w-5" />
                         درخواست برنامه
                     </Button>

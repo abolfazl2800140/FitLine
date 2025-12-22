@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toPersianNumber, formatRelativeTime } from "@/lib/persian";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
 const muscleGroups = [
@@ -54,10 +54,40 @@ const difficultyColors: Record<string, string> = {
 };
 
 export default function LearnPage() {
-  const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("tutorials");
+  const [location, setLocation] = useLocation();
+  const searchString = useSearch();
+  
+  // Get tab from URL query param
+  const urlParams = new URLSearchParams(searchString);
+  const tabFromUrl = urlParams.get("tab");
+  
+  const [activeTab, setActiveTab] = useState(tabFromUrl === "articles" ? "articles" : "tutorials");
   const [selectedMuscle, setSelectedMuscle] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
+
+  // Restore scroll position when coming back
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem("learn-scroll-position");
+    if (savedScroll) {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(savedScroll));
+        sessionStorage.removeItem("learn-scroll-position");
+      }, 100);
+    }
+  }, []);
+
+  // Save scroll position before navigating away
+  const saveScrollAndNavigate = (path: string) => {
+    sessionStorage.setItem("learn-scroll-position", window.scrollY.toString());
+    setLocation(path);
+  };
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const newUrl = tab === "articles" ? "/learn?tab=articles" : "/learn";
+    window.history.replaceState(null, "", newUrl);
+  };
 
   const { data: currentUser } = useQuery<any>({
     queryKey: ["/api/auth/me"],
@@ -68,29 +98,34 @@ export default function LearnPage() {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div>
-            <h1 className="text-xl font-bold">آموزش‌ها</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              یادگیری حرکات و مقالات آموزشی
-            </p>
-          </div>
-          {isCoach && (
+      <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
+        <div className="flex items-center justify-between px-4 h-14 relative">
+          {isCoach ? (
             <Button
               size="sm"
-              className="gap-1"
+              variant="ghost"
+              className="gap-1 text-primary-foreground hover:bg-white/20 min-h-[44px]"
               onClick={() => setLocation("/learn/new-article")}
             >
               <Plus className="h-4 w-4" />
               مقاله جدید
             </Button>
+          ) : (
+            <div className="w-10" />
           )}
+          <span className="text-lg italic font-semibold text-primary-foreground absolute left-1/2 -translate-x-1/2">FitLine</span>
+          <div className="w-10" />
         </div>
       </div>
+      {/* Spacer for fixed header */}
+      <div className="h-14" />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="px-4 pt-2">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <div className="px-4 pt-4">
+          <h1 className="text-xl font-bold mb-1">آموزش‌ها</h1>
+          <p className="text-sm text-muted-foreground mb-4">
+            یادگیری حرکات و مقالات آموزشی
+          </p>
           <TabsList className="w-full grid grid-cols-2 h-12">
             <TabsTrigger value="tutorials" className="gap-2">
               <Dumbbell className="h-4 w-4" />
@@ -107,6 +142,7 @@ export default function LearnPage() {
           <TutorialsTab 
             selectedMuscle={selectedMuscle}
             setSelectedMuscle={setSelectedMuscle}
+            onNavigate={saveScrollAndNavigate}
           />
         </TabsContent>
 
@@ -114,6 +150,7 @@ export default function LearnPage() {
           <ArticlesTab
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
+            onNavigate={saveScrollAndNavigate}
           />
         </TabsContent>
       </Tabs>
@@ -125,12 +162,13 @@ export default function LearnPage() {
 // Tutorials Tab Component
 function TutorialsTab({ 
   selectedMuscle, 
-  setSelectedMuscle 
+  setSelectedMuscle,
+  onNavigate
 }: { 
   selectedMuscle: string;
   setSelectedMuscle: (v: string) => void;
+  onNavigate: (path: string) => void;
 }) {
-  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
   const { data: tutorials, isLoading } = useQuery({
@@ -160,7 +198,7 @@ function TutorialsTab({
             key={group.value}
             variant={selectedMuscle === group.value ? "default" : "outline"}
             size="sm"
-            className="shrink-0 rounded-full"
+            className="shrink-0 rounded-full min-h-[44px] px-4"
             onClick={() => setSelectedMuscle(group.value)}
           >
             {group.label}
@@ -178,7 +216,10 @@ function TutorialsTab({
       ) : tutorials?.length === 0 ? (
         <div className="text-center py-12">
           <Dumbbell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">هنوز آموزشی اضافه نشده</p>
+          <p className="text-muted-foreground mb-3">هنوز آموزشی اضافه نشده</p>
+          <Button variant="outline" className="min-h-[44px]" onClick={() => setSelectedMuscle("all")}>
+            مشاهده همه
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
@@ -187,7 +228,7 @@ function TutorialsTab({
               key={tutorial.id}
               tutorial={tutorial}
               onLike={() => likeMutation.mutate(tutorial.id)}
-              onClick={() => setLocation(`/learn/tutorial/${tutorial.id}`)}
+              onClick={() => onNavigate(`/learn/tutorial/${tutorial.id}`)}
             />
           ))}
         </div>
@@ -278,12 +319,13 @@ function TutorialCardSkeleton() {
 // Articles Tab Component
 function ArticlesTab({ 
   selectedCategory, 
-  setSelectedCategory 
+  setSelectedCategory,
+  onNavigate
 }: { 
   selectedCategory: string;
   setSelectedCategory: (v: string) => void;
+  onNavigate: (path: string) => void;
 }) {
-  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
   const { data: articles, isLoading } = useQuery({
@@ -313,7 +355,7 @@ function ArticlesTab({
             key={cat.value}
             variant={selectedCategory === cat.value ? "default" : "outline"}
             size="sm"
-            className="shrink-0 rounded-full"
+            className="shrink-0 rounded-full min-h-[44px] px-4"
             onClick={() => setSelectedCategory(cat.value)}
           >
             {cat.label}
@@ -331,7 +373,10 @@ function ArticlesTab({
       ) : articles?.length === 0 ? (
         <div className="text-center py-12">
           <BookOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">هنوز مقاله‌ای اضافه نشده</p>
+          <p className="text-muted-foreground mb-3">هنوز مقاله‌ای اضافه نشده</p>
+          <Button variant="outline" className="min-h-[44px]" onClick={() => setSelectedCategory("all")}>
+            مشاهده همه
+          </Button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -340,7 +385,7 @@ function ArticlesTab({
               key={article.id}
               article={article}
               onLike={() => likeMutation.mutate(article.id)}
-              onClick={() => setLocation(`/learn/article/${article.id}`)}
+              onClick={() => onNavigate(`/learn/article/${article.id}`)}
             />
           ))}
         </div>

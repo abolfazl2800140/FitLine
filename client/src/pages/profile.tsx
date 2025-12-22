@@ -7,10 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { translations, toPersianNumber, formatDate } from "@/lib/persian";
 import { Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLikeMutation, useBookmarkMutation } from "@/hooks/useLikeMutation";
 import {
   User,
   Settings,
@@ -47,7 +49,7 @@ const mockWeightData = [
   { date: "تیر", weight: 79 },
   { date: "مرداد", weight: 78 },
   { date: "شهریور", weight: 76 },
-];
+].reverse(); // Reverse for RTL display
 
 const mockBadges = [
   { id: "1", name: "اولین تمرین", icon: "dumbbell", category: "شروع" },
@@ -131,28 +133,11 @@ export default function ProfilePage() {
     enabled: !!currentUser,
   });
 
-  const likeMutation = useMutation({
-    mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
-      const method = isLiked ? "DELETE" : "POST";
-      return apiRequest(method, `/api/posts/${postId}/like`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user/posts"] });
-    },
-  });
-
-  const bookmarkMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      return apiRequest("POST", `/api/posts/${postId}/bookmark`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/bookmarks"] });
-    },
-  });
+  const likeMutation = useLikeMutation({ queryKey: ["/api/user/posts"] });
+  const bookmarkMutation = useBookmarkMutation({ queryKey: ["/api/user/posts"] });
 
   const handleLike = (postId: string, isCurrentlyLiked: boolean) => {
-    likeMutation.mutate({ postId, isLiked: isCurrentlyLiked });
+    likeMutation.mutate({ itemId: postId, isLiked: isCurrentlyLiked });
   };
 
   const { data: userPrograms } = useQuery<any[]>({
@@ -198,14 +183,7 @@ export default function ProfilePage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
-        <div className="container max-w-4xl px-4 md:px-6 h-14 flex items-center justify-center">
-          <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
-        </div>
-      </div>
-      {/* Spacer for fixed header */}
-      <div className="h-14" />
+      <PageHeader />
 
       <div className="container max-w-4xl px-4 md:px-6 py-6">
         <Card className="overflow-hidden mb-6">
@@ -382,27 +360,32 @@ export default function ProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
+                <div className="h-64" dir="ltr">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={mockWeightData}>
+                    <LineChart data={mockWeightData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis
                         dataKey="date"
                         className="text-xs"
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        reversed={true}
                       />
                       <YAxis
                         className="text-xs"
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         domain={['dataMin - 2', 'dataMax + 2']}
+                        orientation="right"
+                        tickFormatter={(value) => `${value} کیلو`}
                       />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
+                          direction: 'rtl',
                         }}
                         labelStyle={{ color: 'hsl(var(--foreground))' }}
+                        formatter={(value: number) => [`${value} کیلوگرم`, 'وزن']}
                       />
                       <Line
                         type="monotone"
@@ -448,7 +431,10 @@ export default function ProfilePage() {
                 <Card className="text-center py-12">
                   <CardContent>
                     <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">هنوز پستی ندارید</p>
+                    <p className="text-muted-foreground mb-3">هنوز پستی ندارید</p>
+                    <Link href="/feed">
+                      <Button variant="outline" className="min-h-[44px]">ایجاد پست جدید</Button>
+                    </Link>
                   </CardContent>
                 </Card>
               )}
@@ -483,7 +469,7 @@ export default function ProfilePage() {
                     <p className="text-muted-foreground text-sm mb-4">
                       تصاویر پیشرفت ماهانه خود را ثبت کنید
                     </p>
-                    <Button>{translations.profile.uploadPhoto}</Button>
+                    <Button className="min-h-[44px]">{translations.profile.uploadPhoto}</Button>
                   </CardContent>
                 </Card>
               )}

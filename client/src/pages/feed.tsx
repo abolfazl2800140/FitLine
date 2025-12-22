@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostCard, PostCardSkeleton } from "@/components/ui/post-card";
 import { PullToRefresh } from "@/components/ui/pull-to-refresh";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { translations } from "@/lib/persian";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLikeMutation, useBookmarkMutation } from "@/hooks/useLikeMutation";
 import { Image, Send, Loader2, Newspaper } from "lucide-react";
 
 export default function FeedPage() {
@@ -44,67 +46,8 @@ export default function FeedPage() {
     },
   });
 
-  const likeMutation = useMutation({
-    mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
-      const method = isLiked ? "DELETE" : "POST";
-      return apiRequest(method, `/api/posts/${postId}/like`);
-    },
-    onMutate: async ({ postId, isLiked }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
-
-      // Snapshot the previous value
-      const previousPosts = queryClient.getQueryData<any[]>(["/api/posts"]);
-
-      // Optimistically update the cache
-      queryClient.setQueryData<any[]>(["/api/posts"], (old) =>
-        old?.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                isLiked: !isLiked,
-                likeCount: isLiked ? Math.max(0, post.likeCount - 1) : post.likeCount + 1,
-              }
-            : post
-        )
-      );
-
-      return { previousPosts };
-    },
-    onError: (err, variables, context) => {
-      // Rollback on error
-      if (context?.previousPosts) {
-        queryClient.setQueryData(["/api/posts"], context.previousPosts);
-      }
-    },
-  });
-
-  const bookmarkMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      return apiRequest("POST", `/api/posts/${postId}/bookmark`);
-    },
-    onMutate: async (postId) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/posts"] });
-      const previousPosts = queryClient.getQueryData<any[]>(["/api/posts"]);
-      queryClient.setQueryData<any[]>(["/api/posts"], (old) =>
-        old?.map((post) =>
-          post.id === postId
-            ? { ...post, isBookmarked: !post.isBookmarked }
-            : post
-        )
-      );
-      return { previousPosts };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousPosts) {
-        queryClient.setQueryData(["/api/posts"], context.previousPosts);
-      }
-    },
-    onSuccess: () => {
-      // Invalidate bookmarks cache so the bookmarks page shows updated data
-      queryClient.invalidateQueries({ queryKey: ["/api/bookmarks"] });
-    },
-  });
+  const likeMutation = useLikeMutation({ queryKey: ["/api/posts"] });
+  const bookmarkMutation = useBookmarkMutation({ queryKey: ["/api/posts"] });
 
   const handleSubmitPost = () => {
     if (newPostContent.trim()) {
@@ -117,19 +60,12 @@ export default function FeedPage() {
   };
 
   const handleLike = (postId: string, isCurrentlyLiked: boolean) => {
-    likeMutation.mutate({ postId, isLiked: isCurrentlyLiked });
+    likeMutation.mutate({ itemId: postId, isLiked: isCurrentlyLiked });
   };
 
   return (
     <div>
-      {/* Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-primary">
-        <div className="container max-w-2xl px-4 md:px-6 h-14 flex items-center justify-center">
-          <span className="text-lg italic font-semibold text-primary-foreground">FitLine</span>
-        </div>
-      </div>
-      {/* Spacer for fixed header */}
-      <div className="h-14" />
+      <PageHeader />
 
       <PullToRefresh onRefresh={handleRefresh}>
         <div className="container max-w-2xl px-4 md:px-6 py-6">
@@ -222,6 +158,11 @@ export default function FeedPage() {
                   <p className="text-muted-foreground mb-4">
                     اولین نفری باشید که پست می‌گذارد!
                   </p>
+                  {currentUser && (
+                    <Button className="min-h-[44px]" onClick={() => document.querySelector<HTMLTextAreaElement>('[data-testid="textarea-new-post"]')?.focus()}>
+                      ایجاد پست جدید
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}

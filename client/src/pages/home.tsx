@@ -520,7 +520,12 @@ export default function HomePage() {
               <Card className="text-center py-8 border-0 bg-card/80">
                 <CardContent>
                   <Target className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground text-sm">پست‌ها به زودی اضافه می‌شوند</p>
+                  <p className="text-muted-foreground text-sm mb-3">هنوز پستی منتشر نشده</p>
+                  <Link href="/feed">
+                    <Button variant="outline" size="sm" className="min-h-[44px]">
+                      اولین پست رو بذار
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             )}

@@ -171,7 +171,7 @@ export function PostCard({
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 hover:bg-transparent"
+          className="h-11 w-11 hover:bg-transparent"
           onClick={() => {
             setSaved(!saved);
             onSave?.();
@@ -181,11 +181,11 @@ export function PostCard({
           <Bookmark className={cn("h-[22px] w-[22px]", saved && "fill-current")} />
         </Button>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
-            className="h-9 px-2 hover:bg-transparent gap-1"
+            className="h-11 px-3 hover:bg-transparent gap-1"
             onClick={onShare}
             data-testid={`button-share-${id}`}
           >
@@ -194,7 +194,7 @@ export function PostCard({
           <Button
             variant="ghost"
             size="sm"
-            className="h-9 px-2 hover:bg-transparent gap-1"
+            className="h-11 px-3 hover:bg-transparent gap-1"
             onClick={() => setLocation(`/post/${id}`)}
             data-testid={`button-comment-${id}`}
           >
@@ -204,7 +204,7 @@ export function PostCard({
           <Button
             variant="ghost"
             size="sm"
-            className={cn("h-9 px-2 hover:bg-transparent gap-1", liked && "text-red-500")}
+            className={cn("h-11 px-3 hover:bg-transparent gap-1", liked && "text-red-500")}
             onClick={handleLike}
             data-testid={`button-like-${id}`}
           >

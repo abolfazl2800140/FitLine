@@ -58,7 +58,7 @@ export function BottomNav() {
             <Link key={item.path} href={item.path}>
               <motion.button
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-0.5 py-2 px-5 rounded-2xl",
+                  "relative flex flex-col items-center justify-center gap-0.5 py-2 px-4 rounded-2xl min-w-[56px] min-h-[56px]",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground"

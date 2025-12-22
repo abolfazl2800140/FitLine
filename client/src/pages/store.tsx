@@ -120,7 +120,7 @@ export default function StorePage() {
 
       <div className="container px-4 md:px-6 py-6">
         <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-          <SheetContent side="left" className="w-full sm:max-w-md flex flex-col">
+          <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5" />
@@ -149,7 +149,7 @@ export default function StorePage() {
                     {cartItems.map((item: any) => (
                       <div
                         key={item.id}
-                        className="flex gap-3"
+                        className="flex gap-3 flex-row-reverse"
                         data-testid={`cart-item-${item.id}`}
                       >
                         <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden flex-shrink-0">
@@ -165,7 +165,7 @@ export default function StorePage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 text-right">
                           <p className="font-medium text-sm line-clamp-1">
                             {item.supplement?.name}
                           </p>
@@ -176,11 +176,11 @@ export default function StorePage() {
                             {formatPrice(item.supplement?.price || 0)} {translations.coaches.toman}
                           </p>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
+                        <div className="flex flex-col items-start gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            className="h-9 w-9 text-muted-foreground hover:text-destructive"
                             onClick={() => updateCartMutation.mutate({ itemId: item.id, quantity: 0 })}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -189,27 +189,27 @@ export default function StorePage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6"
+                              className="h-9 w-9"
                               onClick={() => updateCartMutation.mutate({
                                 itemId: item.id,
                                 quantity: Math.max(0, (item.quantity || 1) - 1)
                               })}
                             >
-                              <Minus className="h-3 w-3" />
+                              <Minus className="h-4 w-4" />
                             </Button>
-                            <span className="w-6 text-center text-sm font-medium">
+                            <span className="w-8 text-center text-sm font-medium">
                               {toPersianNumber(item.quantity || 1)}
                             </span>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6"
+                              className="h-9 w-9"
                               onClick={() => updateCartMutation.mutate({
                                 itemId: item.id,
                                 quantity: (item.quantity || 1) + 1
                               })}
                             >
-                              <Plus className="h-3 w-3" />
+                              <Plus className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -220,13 +220,13 @@ export default function StorePage() {
 
                 <SheetFooter className="flex-col border-t pt-4">
                   <div className="flex items-center justify-between w-full mb-4">
-                    <span className="text-muted-foreground">{translations.store.total}:</span>
                     <span className="text-xl font-bold text-primary">
                       {formatPrice(cartTotal)} {translations.coaches.toman}
                     </span>
+                    <span className="text-muted-foreground">{translations.store.total}:</span>
                   </div>
                   <Button
-                    className="w-full glow-green"
+                    className="w-full glow-green min-h-[48px]"
                     size="lg"
                     data-testid="button-checkout"
                   >
@@ -237,34 +237,33 @@ export default function StorePage() {
             )}
           </SheetContent>
         </Sheet>
-      </div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="جستجوی محصول..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pr-10"
-            data-testid="input-search-supplements"
-          />
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="جستجوی محصول..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pr-10"
+              data-testid="input-search-supplements"
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-6">
-        {categories.map((cat) => (
-          <Badge
-            key={cat.value}
-            variant={category === cat.value ? "default" : "outline"}
-            className="cursor-pointer whitespace-nowrap"
-            onClick={() => setCategory(cat.value)}
-            data-testid={`badge-category-${cat.value}`}
-          >
-            {cat.label}
-          </Badge>
-        ))}
-      </div>
+        <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-6">
+          {categories.map((cat) => (
+            <Badge
+              key={cat.value}
+              variant={category === cat.value ? "default" : "outline"}
+              className="cursor-pointer whitespace-nowrap px-4 py-2 min-h-[44px] flex items-center"
+              onClick={() => setCategory(cat.value)}
+              data-testid={`badge-category-${cat.value}`}
+            >
+              {cat.label}
+            </Badge>
+          ))}
+        </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {isLoading ? (
@@ -295,11 +294,12 @@ export default function StorePage() {
             <p className="text-muted-foreground mb-4">
               با تغییر فیلترها دوباره جستجو کنید
             </p>
-            <Button variant="outline" onClick={() => { setSearch(""); setCategory("all"); }}>
+            <Button variant="outline" className="min-h-[44px]" onClick={() => { setSearch(""); setCategory("all"); }}>
               پاک کردن فیلترها
             </Button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

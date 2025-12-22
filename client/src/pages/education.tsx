@@ -179,36 +179,35 @@ export default function EducationPage() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="جستجوی سوال..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pr-10"
-            data-testid="input-search-questions"
-          />
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="جستجوی سوال..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pr-10"
+              data-testid="input-search-questions"
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-6">
-        {categories.map((cat) => (
-          <Badge
-            key={cat.value}
-            variant={category === cat.value ? "default" : "outline"}
-            className="cursor-pointer whitespace-nowrap"
-            onClick={() => setCategory(cat.value)}
-            data-testid={`badge-category-${cat.value}`}
-          >
-            {cat.label}
-          </Badge>
-        ))}
-      </div>
+        <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-6">
+          {categories.map((cat) => (
+            <Badge
+              key={cat.value}
+              variant={category === cat.value ? "default" : "outline"}
+              className="cursor-pointer whitespace-nowrap px-4 py-2 min-h-[44px] flex items-center"
+              onClick={() => setCategory(cat.value)}
+              data-testid={`badge-category-${cat.value}`}
+            >
+              {cat.label}
+            </Badge>
+          ))}
+        </div>
 
-      <div className="space-y-4">
+        <div className="space-y-4">
         {isLoading ? (
           Array.from({ length: 5 }).map((_, i) => (
             <QuestionCardSkeleton key={i} />
@@ -241,17 +240,18 @@ export default function EducationPage() {
                 }
               </p>
               {(search || category !== "all") ? (
-                <Button variant="outline" onClick={() => { setSearch(""); setCategory("all"); }}>
+                <Button variant="outline" className="min-h-[44px]" onClick={() => { setSearch(""); setCategory("all"); }}>
                   پاک کردن فیلترها
                 </Button>
               ) : (
-                <Button onClick={() => setDialogOpen(true)}>
+                <Button className="min-h-[44px]" onClick={() => setLocation("/education/ask")}>
                   {translations.education.askQuestion}
                 </Button>
               )}
             </CardContent>
           </Card>
         )}
+        </div>
       </div>
     </div>
   );
