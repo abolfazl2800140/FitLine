@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toPersianNumber, formatRelativeTime } from "@/lib/persian";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useFollowSound } from "@/hooks/useFollowSound";
 import {
     ArrowRight,
     User,
@@ -29,6 +30,7 @@ export default function UserProfilePage() {
     const params = useParams<{ id: string }>();
     const [, setLocation] = useLocation();
     const { toast } = useToast();
+    const { playFollowSound } = useFollowSound();
     const [isFollowingLocal, setIsFollowingLocal] = useState<boolean | null>(null);
 
     // Scroll to top when page loads
@@ -57,6 +59,7 @@ export default function UserProfilePage() {
             return apiRequest("POST", `/api/users/${params.id}/follow`);
         },
         onSuccess: () => {
+            playFollowSound(); // پخش صدای فالو
             setIsFollowingLocal(true);
             queryClient.invalidateQueries({ queryKey: ["/api/users", params.id] });
             toast({ title: "دنبال شد", description: `${user?.fullName} رو دنبال کردی` });
