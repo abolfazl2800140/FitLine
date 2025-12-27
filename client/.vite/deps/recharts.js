@@ -2,11 +2,11 @@ import {
   require_react_dom
 } from "./chunk-JVZ3ERRM.js";
 import {
-  clsx_default
-} from "./chunk-FE7FDHKZ.js";
-import {
   require_react
 } from "./chunk-ND5CW2KO.js";
+import {
+  clsx_default
+} from "./chunk-FE7FDHKZ.js";
 import {
   __commonJS,
   __export,

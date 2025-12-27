@@ -82,7 +82,7 @@ router.post('/conversations/:id/read', requireAuth, async (req, res) => {
 });
 
 // Edit message
-router.patch('/:id', requireAuth, async (req, res) => {
+router.patch('/messages/:id', requireAuth, async (req, res) => {
   try {
     const { content } = req.body;
     if (!content || !content.trim()) {
@@ -99,7 +99,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
 });
 
 // Delete message
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/messages/:id', requireAuth, async (req, res) => {
   try {
     const success = await storage.deleteMessage(req.params.id, req.user!.id);
     if (!success) {
@@ -112,14 +112,14 @@ router.delete('/:id', requireAuth, async (req, res) => {
 });
 
 // Add reaction
-router.post('/:id/reactions', requireAuth, async (req, res) => {
+router.post('/messages/:id/reactions', requireAuth, async (req, res) => {
   try {
     const { emoji } = req.body;
     if (!emoji) {
       return res.status(400).json({ message: 'ایموجی الزامی است' });
     }
     const reaction = await storage.addReaction(req.params.id, req.user!.id, emoji);
-    
+
     const [message] = await db.select().from(messages).where(eq(messages.id, req.params.id)).limit(1);
     if (message && message.senderId !== req.user!.id) {
       const sendToUser = (global as any).wsSendToUser;
@@ -132,7 +132,7 @@ router.post('/:id/reactions', requireAuth, async (req, res) => {
         });
       }
     }
-    
+
     res.json(reaction);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -140,7 +140,7 @@ router.post('/:id/reactions', requireAuth, async (req, res) => {
 });
 
 // Remove reaction
-router.delete('/:id/reactions/:emoji', requireAuth, async (req, res) => {
+router.delete('/messages/:id/reactions/:emoji', requireAuth, async (req, res) => {
   try {
     await storage.removeReaction(req.params.id, req.user!.id, req.params.emoji);
     res.json({ success: true });
@@ -150,7 +150,7 @@ router.delete('/:id/reactions/:emoji', requireAuth, async (req, res) => {
 });
 
 // Get reactions
-router.get('/:id/reactions', async (req, res) => {
+router.get('/messages/:id/reactions', async (req, res) => {
   try {
     const reactions = await storage.getMessageReactions(req.params.id);
     res.json(reactions);
@@ -160,7 +160,7 @@ router.get('/:id/reactions', async (req, res) => {
 });
 
 // Upload voice message
-router.post('/voice', requireAuth, upload.single('voice'), async (req, res) => {
+router.post('/messages/voice', requireAuth, upload.single('voice'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'فایل صوتی یافت نشد' });

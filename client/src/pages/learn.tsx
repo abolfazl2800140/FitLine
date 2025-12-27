@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
+import {
   Dumbbell, BookOpen, Heart, Eye, Clock, ChevronLeft,
   Filter, Search, Plus, PenSquare
 } from "lucide-react";
@@ -56,11 +56,11 @@ const difficultyColors: Record<string, string> = {
 export default function LearnPage() {
   const [location, setLocation] = useLocation();
   const searchString = useSearch();
-  
+
   // Get tab from URL query param
   const urlParams = new URLSearchParams(searchString);
   const tabFromUrl = urlParams.get("tab");
-  
+
   const [activeTab, setActiveTab] = useState(tabFromUrl === "articles" ? "articles" : "tutorials");
   const [selectedMuscle, setSelectedMuscle] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -139,7 +139,7 @@ export default function LearnPage() {
         </div>
 
         <TabsContent value="tutorials" className="mt-0">
-          <TutorialsTab 
+          <TutorialsTab
             selectedMuscle={selectedMuscle}
             setSelectedMuscle={setSelectedMuscle}
             onNavigate={saveScrollAndNavigate}
@@ -160,11 +160,11 @@ export default function LearnPage() {
 
 
 // Tutorials Tab Component
-function TutorialsTab({ 
-  selectedMuscle, 
+function TutorialsTab({
+  selectedMuscle,
   setSelectedMuscle,
   onNavigate
-}: { 
+}: {
   selectedMuscle: string;
   setSelectedMuscle: (v: string) => void;
   onNavigate: (path: string) => void;
@@ -237,11 +237,11 @@ function TutorialsTab({
   );
 }
 
-function TutorialCard({ 
-  tutorial, 
-  onLike, 
-  onClick 
-}: { 
+function TutorialCard({
+  tutorial,
+  onLike,
+  onClick
+}: {
   tutorial: any;
   onLike: () => void;
   onClick: () => void;
@@ -265,7 +265,7 @@ function TutorialCard({
               <Dumbbell className="h-8 w-8 text-muted-foreground/30" />
             </div>
           )}
-          <Badge 
+          <Badge
             className={cn(
               "absolute top-2 right-2 text-xs px-2 py-1",
               difficultyColors[tutorial.difficulty]
@@ -274,28 +274,26 @@ function TutorialCard({
             {difficultyLabels[tutorial.difficulty]}
           </Badge>
         </div>
-        <CardContent className="p-3 text-right">
-          <h3 className="font-semibold text-sm line-clamp-1">{tutorial.name}</h3>
-          <div className="flex items-center justify-end gap-2 mt-2 text-xs text-muted-foreground flex-row-reverse">
+        <CardContent className="p-3">
+          <h3 className="font-semibold text-sm line-clamp-1 text-right">{tutorial.name}</h3>
+          <div className="flex items-center justify-end gap-2 mt-2 text-xs text-muted-foreground">
+            <span className="truncate">{tutorial.coach?.fullName}</span>
             <Avatar className="h-5 w-5">
               <AvatarImage src={tutorial.coach?.avatar} />
               <AvatarFallback className="text-[8px]">
                 {tutorial.coach?.fullName?.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <span className="truncate">{tutorial.coach?.fullName}</span>
           </div>
-          <div className="flex items-center justify-end mt-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-3 flex-row-reverse">
-              <span className="flex items-center gap-1 flex-row-reverse">
-                <Heart className="h-3 w-3" />
-                {toPersianNumber(tutorial.likeCount || 0)}
-              </span>
-              <span className="flex items-center gap-1 flex-row-reverse">
-                <Eye className="h-3 w-3" />
-                {toPersianNumber(tutorial.viewCount || 0)}
-              </span>
-            </div>
+          <div className="flex items-center justify-end gap-3 mt-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              {toPersianNumber(tutorial.viewCount || 0)}
+              <Eye className="h-3 w-3" />
+            </span>
+            <span className="flex items-center gap-1">
+              {toPersianNumber(tutorial.likeCount || 0)}
+              <Heart className="h-3 w-3" />
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -317,11 +315,11 @@ function TutorialCardSkeleton() {
 
 
 // Articles Tab Component
-function ArticlesTab({ 
-  selectedCategory, 
+function ArticlesTab({
+  selectedCategory,
   setSelectedCategory,
   onNavigate
-}: { 
+}: {
   selectedCategory: string;
   setSelectedCategory: (v: string) => void;
   onNavigate: (path: string) => void;
@@ -394,11 +392,11 @@ function ArticlesTab({
   );
 }
 
-function ArticleCard({ 
-  article, 
-  onLike, 
-  onClick 
-}: { 
+function ArticleCard({
+  article,
+  onLike,
+  onClick
+}: {
   article: any;
   onLike: () => void;
   onClick: () => void;

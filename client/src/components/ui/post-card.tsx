@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, Flag } from "lucide-react";
 import { formatRelativeTime, toPersianNumber } from "@/lib/persian";
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import { useLocation } from "wouter";
 import {
   DropdownMenu,
@@ -29,12 +29,11 @@ interface PostCardProps {
   isSaved?: boolean;
   onLike?: (isCurrentlyLiked: boolean) => void;
   onSave?: () => void;
-  onComment?: () => void;
   onShare?: () => void;
   className?: string;
 }
 
-export function PostCard({
+export const PostCard = memo(function PostCard({
   id,
   userId,
   userName,
@@ -48,7 +47,6 @@ export function PostCard({
   isSaved = false,
   onLike,
   onSave,
-  onComment,
   onShare,
   className,
 }: PostCardProps) {
@@ -125,7 +123,7 @@ export function PostCard({
       </CardHeader>
 
       <CardContent className="px-4 py-2">
-        <p 
+        <p
           className="text-sm leading-relaxed whitespace-pre-wrap cursor-pointer"
           onClick={() => setLocation(`/post/${id}`)}
         >
@@ -133,7 +131,7 @@ export function PostCard({
         </p>
 
         {images.length > 0 && (
-          <div 
+          <div
             className={cn(
               "mt-3 rounded-lg overflow-hidden cursor-pointer",
               images.length === 1 ? "grid-cols-1" : "grid grid-cols-2 gap-1"
@@ -216,9 +214,9 @@ export function PostCard({
 
     </Card>
   );
-}
+});
 
-export function PostCardSkeleton() {
+export const PostCardSkeleton = memo(function PostCardSkeleton() {
   return (
     <Card className="overflow-hidden">
       <CardHeader className="flex flex-row items-center gap-3 p-4 pb-2">
@@ -244,4 +242,4 @@ export function PostCardSkeleton() {
       </CardFooter>
     </Card>
   );
-}
+});

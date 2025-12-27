@@ -101,7 +101,7 @@ export function CoachCard({
                 </AvatarFallback>
               </Avatar>
               {isVerified && (
-                <div className="absolute -bottom-1 -left-1 bg-primary rounded-full p-1 shadow-lg shadow-primary/30">
+                <div className="absolute -bottom-1 -left-1 bg-primary rounded-full p-1">
                   <BadgeCheck className="h-4 w-4 text-primary-foreground" />
                 </div>
               )}

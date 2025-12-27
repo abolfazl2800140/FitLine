@@ -12,16 +12,17 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLikeMutation, useBookmarkMutation } from "@/hooks/useLikeMutation";
 import { Image, Send, Loader2, Newspaper } from "lucide-react";
+import type { Post, User } from "@/types";
 
 export default function FeedPage() {
   const [newPostContent, setNewPostContent] = useState("");
   const { toast } = useToast();
 
-  const { data: currentUser } = useQuery<any>({
+  const { data: currentUser } = useQuery<User | null>({
     queryKey: ["/api/auth/me"],
   });
 
-  const { data: posts, isLoading } = useQuery<any[]>({
+  const { data: posts, isLoading } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
   });
 
@@ -132,7 +133,7 @@ export default function FeedPage() {
                 <PostCardSkeleton key={i} />
               ))
             ) : posts && posts.length > 0 ? (
-              posts.map((post: any) => (
+              posts.map((post) => (
                 <PostCard
                   key={post.id}
                   id={post.id}

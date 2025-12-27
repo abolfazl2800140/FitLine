@@ -194,7 +194,6 @@ function setupWebSocket(httpServer: Server) {
           userId = message.userId;
           if (userId) {
             clients.set(userId, ws);
-            console.log(`User ${userId} connected via WebSocket`);
             ws.send(JSON.stringify({ type: 'connected', userId }));
           }
         }
@@ -243,12 +242,9 @@ function setupWebSocket(httpServer: Server) {
     ws.on('close', () => {
       if (userId) {
         clients.delete(userId);
-        console.log(`User ${userId} disconnected from WebSocket`);
       }
     });
 
-    ws.on('error', (error) => {
-      console.error('WebSocket client error:', error);
-    });
+    ws.on('error', () => { });
   });
 }

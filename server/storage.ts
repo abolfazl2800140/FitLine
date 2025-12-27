@@ -753,7 +753,7 @@ export class DbStorage implements IStorage {
     // Check if already liked
     const alreadyLiked = await this.isPostLiked(userId, postId);
     if (alreadyLiked) return;
-    
+
     await db.insert(likes).values({ userId, postId });
     await db.update(posts)
       .set({ likeCount: sql`${posts.likeCount} + 1` })
@@ -1186,9 +1186,12 @@ export class DbStorage implements IStorage {
 
     if (!message) return false;
 
+    // Remove replyToId from messages that replied to this message
+    await db.update(messages).set({ replyToId: null }).where(eq(messages.replyToId, messageId));
+
     // Delete reactions first
     await db.delete(messageReactions).where(eq(messageReactions.messageId, messageId));
-    
+
     // Delete the message completely (like Telegram)
     await db.delete(messages).where(eq(messages.id, messageId));
 
@@ -1977,7 +1980,6 @@ export class DbStorage implements IStorage {
       }
     }).length;
 
-    console.log(`Monthly request count for user ${userId}, type ${type}:`, count, 'from', requests.length, 'total requests');
     return count;
   }
 
@@ -2767,7 +2769,7 @@ export class DbStorage implements IStorage {
     const bookmarksWithDetails = await Promise.all(
       userBookmarks.map(async (bookmark) => {
         let item = null;
-        
+
         if (bookmark.itemType === 'article') {
           item = await this.getArticle(bookmark.itemId);
         } else if (bookmark.itemType === 'tutorial') {

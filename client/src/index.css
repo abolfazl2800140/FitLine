@@ -269,6 +269,20 @@
   :focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
+
+  /* Remove focus ring from OTP inputs */
+  input[data-otp-input]:focus-visible,
+  .otp-input:focus-visible {
+    @apply ring-0 ring-offset-0 outline-none;
+  }
+
+  /* Center text in OTP inputs */
+  .otp-input {
+    text-align: center !important;
+    text-indent: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 }
 
 @layer utilities {
@@ -936,4 +950,9 @@ body.hide-bottom-nav .bottom-nav-container {
 .animate-typing-dot-3 {
   animation: typingDot 1.4s ease-in-out infinite;
   animation-delay: 0.4s;
+}
+
+/* Right align placeholder text */
+input[dir="ltr"]::placeholder {
+  text-align: left !important;
 }

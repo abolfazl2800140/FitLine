@@ -50,61 +50,55 @@ export function useWebSocket(): UseWebSocketReturn {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const host = window.location.host;
                 if (!host) {
-                    console.warn('WebSocket: host not available');
                     return;
                 }
                 const wsUrl = `${protocol}//${host}/ws`;
 
                 wsInstance = new WebSocket(wsUrl);
 
-            wsInstance.onopen = () => {
-                console.log('WebSocket connected');
-                setIsConnected(true);
+                wsInstance.onopen = () => {
+                    setIsConnected(true);
 
-                // Authenticate
-                wsInstance?.send(JSON.stringify({
-                    type: 'auth',
-                    userId: user.id,
-                }));
-            };
+                    // Authenticate
+                    wsInstance?.send(JSON.stringify({
+                        type: 'auth',
+                        userId: user.id,
+                    }));
+                };
 
-            wsInstance.onmessage = (event) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    console.log('WebSocket message:', message);
+                wsInstance.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
 
-                    // Call type-specific handlers
-                    const typeHandlers = handlers.get(message.type);
-                    if (typeHandlers) {
-                        typeHandlers.forEach(handler => handler(message));
+                        // Call type-specific handlers
+                        const typeHandlers = handlers.get(message.type);
+                        if (typeHandlers) {
+                            typeHandlers.forEach(handler => handler(message));
+                        }
+
+                        // Call global handlers
+                        globalHandlers.forEach(handler => handler(message));
+
+                        // Auto-update React Query cache based on message type
+                        handleCacheUpdate(message, queryClient);
+                    } catch {
+                        // Parse error
                     }
+                };
 
-                    // Call global handlers
-                    globalHandlers.forEach(handler => handler(message));
+                wsInstance.onclose = () => {
+                    setIsConnected(false);
+                    wsInstance = null;
 
-                    // Auto-update React Query cache based on message type
-                    handleCacheUpdate(message, queryClient);
-                } catch (error) {
-                    console.error('WebSocket message parse error:', error);
-                }
-            };
+                    // Reconnect after 3 seconds
+                    if (user?.id) {
+                        reconnectTimeout = setTimeout(connect, 3000);
+                    }
+                };
 
-            wsInstance.onclose = () => {
-                console.log('WebSocket disconnected');
-                setIsConnected(false);
-                wsInstance = null;
-
-                // Reconnect after 3 seconds
-                if (user?.id) {
-                    reconnectTimeout = setTimeout(connect, 3000);
-                }
-            };
-
-            wsInstance.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
-            } catch (error) {
-                console.warn('WebSocket connection failed:', error);
+                wsInstance.onerror = () => { };
+            } catch {
+                // Connection failed
             }
         };
 
@@ -121,8 +115,6 @@ export function useWebSocket(): UseWebSocketReturn {
     const sendMessage = useCallback((message: WebSocketMessage) => {
         if (wsInstance?.readyState === WebSocket.OPEN) {
             wsInstance.send(JSON.stringify(message));
-        } else {
-            console.warn('WebSocket not connected');
         }
     }, []);
 
@@ -224,8 +216,9 @@ function handleCacheUpdate(message: WebSocketMessage, queryClient: any) {
             // Invalidate current user's profile to update follower count
             queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
             // Also invalidate any user profile queries
-            queryClient.invalidateQueries({ predicate: (query) => 
-                Array.isArray(query.queryKey) && query.queryKey[0] === '/api/users'
+            queryClient.invalidateQueries({
+                predicate: (query) =>
+                    Array.isArray(query.queryKey) && query.queryKey[0] === '/api/users'
             });
             break;
 

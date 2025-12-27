@@ -34,7 +34,6 @@ export async function sendPushNotification(userId: string, payload: Notification
             .where(eq(pushSubscriptions.userId, userId));
 
         if (subscriptions.length === 0) {
-            console.log(`No push subscriptions found for user ${userId}`);
             return false;
         }
 
@@ -63,10 +62,8 @@ export async function sendPushNotification(userId: string, payload: Notification
                     );
                     return true;
                 } catch (error: any) {
-                    // اگر subscription منقضی شده، حذفش کن
                     if (error.statusCode === 410 || error.statusCode === 404) {
                         await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
-                        console.log(`Removed expired subscription ${sub.id}`);
                     }
                     throw error;
                 }
@@ -74,8 +71,7 @@ export async function sendPushNotification(userId: string, payload: Notification
         );
 
         return results.some((r) => r.status === 'fulfilled');
-    } catch (error) {
-        console.error('Error sending push notification:', error);
+    } catch {
         return false;
     }
 }
@@ -161,16 +157,12 @@ export function startReminderScheduler(): void {
     // هر دقیقه چک کن
     reminderInterval = setInterval(checkAndSendScheduledReminders, 60 * 1000);
 
-    // یک بار هم الان چک کن
     checkAndSendScheduledReminders();
-
-    console.log('Meal reminder scheduler started');
 }
 
 export function stopReminderScheduler(): void {
     if (reminderInterval) {
         clearInterval(reminderInterval);
         reminderInterval = null;
-        console.log('Meal reminder scheduler stopped');
     }
 }

@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, memo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatRelativeTime, toPersianNumber } from "@/lib/persian";
 import { cn } from "@/lib/utils";
+import type { Post, Comment, User } from "@/types";
 import {
     ArrowRight,
     Heart,
@@ -25,37 +25,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface Comment {
-    id: string;
-    postId: string;
-    userId: string;
-    parentId: string | null;
-    content: string;
-    replyCount: number;
-    createdAt: string;
-    user: {
-        id: string;
-        fullName: string;
-        avatar: string | null;
-    };
-}
-
-interface Post {
-    id: string;
-    userId: string;
-    content: string;
-    images: string[];
-    likeCount: number;
-    commentCount: number;
-    createdAt: string;
-    isLiked?: boolean;
-    user: {
-        id: string;
-        fullName: string;
-        avatar: string | null;
-    };
-}
-
 export default function PostDetailPage() {
     const { id } = useParams<{ id: string }>();
     const [, setLocation] = useLocation();
@@ -66,7 +35,7 @@ export default function PostDetailPage() {
     const [likeCount, setLikeCount] = useState(0);
     const [isLiked, setIsLiked] = useState(false);
 
-    const { data: currentUser } = useQuery<any>({
+    const { data: currentUser } = useQuery<User | null>({
         queryKey: ["/api/auth/me"],
     });
 
@@ -76,20 +45,12 @@ export default function PostDetailPage() {
     });
 
     // Sync like state with post data
-    useState(() => {
+    useEffect(() => {
         if (post) {
             setIsLiked(post.isLiked || false);
             setLikeCount(post.likeCount || 0);
         }
-    });
-
-    // Update state when post changes
-    if (post && likeCount === 0 && post.likeCount > 0) {
-        setLikeCount(post.likeCount);
-    }
-    if (post && !isLiked && post.isLiked) {
-        setIsLiked(post.isLiked);
-    }
+    }, [post]);
 
     const { data: comments, isLoading: commentsLoading } = useQuery<Comment[]>({
         queryKey: [`/api/posts/${id}/comments`],
@@ -120,7 +81,7 @@ export default function PostDetailPage() {
             setIsLiked(!currentlyLiked);
             setLikeCount(prev => currentlyLiked ? prev - 1 : prev + 1);
         },
-        onError: (err, currentlyLiked) => {
+        onError: (_error, currentlyLiked) => {
             // Rollback on error
             setIsLiked(currentlyLiked);
             setLikeCount(prev => currentlyLiked ? prev + 1 : prev - 1);
@@ -152,7 +113,7 @@ export default function PostDetailPage() {
                         <Button variant="ghost" size="icon" onClick={() => setLocation("/feed")}>
                             <ArrowRight className="h-5 w-5" />
                         </Button>
-                        <span className="mr-4 font-semibold">تِرِد</span>
+                        <span className="mr-4 font-semibold">فید</span>
                     </div>
                 </div>
                 <div className="h-14" />
@@ -171,7 +132,7 @@ export default function PostDetailPage() {
                         <Button variant="ghost" size="icon" onClick={() => setLocation("/feed")}>
                             <ArrowRight className="h-5 w-5" />
                         </Button>
-                        <span className="mr-4 font-semibold">تِرِد</span>
+                        <span className="mr-4 font-semibold">فید</span>
                     </div>
                 </div>
                 <div className="h-14" />
@@ -190,7 +151,7 @@ export default function PostDetailPage() {
                     <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
                         <ArrowRight className="h-5 w-5" />
                     </Button>
-                    <span className="mr-4 font-semibold">تِرِد</span>
+                    <span className="mr-4 font-semibold">فید</span>
                 </div>
             </div>
             <div className="h-14" />
@@ -456,9 +417,8 @@ interface ThreadCommentProps {
     isReply?: boolean;
 }
 
-function ThreadComment({ comment, postId, onReply, onUserClick, isReply = false }: ThreadCommentProps) {
+const ThreadComment = memo(function ThreadComment({ comment, postId, onReply, onUserClick, isReply = false }: ThreadCommentProps) {
     const [showReplies, setShowReplies] = useState(false);
-    const [, setLocation] = useLocation();
 
     const { data: replies, isLoading: repliesLoading } = useQuery<Comment[]>({
         queryKey: [`/api/comments/${comment.id}/replies`],
@@ -549,4 +509,4 @@ function ThreadComment({ comment, postId, onReply, onUserClick, isReply = false 
             </div>
         </div>
     );
-}
+});

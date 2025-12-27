@@ -41,6 +41,9 @@ const InputOTPSlot = React.forwardRef<
       className={cn(
         "relative flex h-10 w-10 items-center justify-center border-y border-r border-input text-sm transition-all first:rounded-l-md first:border-l last:rounded-r-md",
         isActive && "z-10 ring-2 ring-ring ring-offset-background",
+        // Override styles when custom classes are provided
+        className?.includes("border-0") && "!border-0",
+        className?.includes("border-b-2") && isActive && "!border-b-primary !ring-0",
         className
       )}
       {...props}

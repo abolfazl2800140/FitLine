@@ -19,11 +19,23 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    sourcemap: false,
+    minify: "esbuild",
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs'],
+          vendor: ["react", "react-dom"],
+          router: ["wouter"],
+          query: ["@tanstack/react-query"],
+          ui: [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-avatar",
+            "@radix-ui/react-toast",
+          ],
+          animation: ["framer-motion"],
+          icons: ["lucide-react"],
         },
       },
     },
@@ -36,15 +48,15 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: [
-      'react', 
-      'react-dom', 
-      'wouter', 
-      '@tanstack/react-query',
-      'framer-motion',
-      'lucide-react',
-      'clsx',
-      'tailwind-merge',
+      "react",
+      "react-dom",
+      "wouter",
+      "@tanstack/react-query",
+      "framer-motion",
+      "lucide-react",
+      "clsx",
+      "tailwind-merge",
     ],
   },
-  cacheDir: '.vite',
+  cacheDir: ".vite",
 });
